@@ -6,13 +6,10 @@ import { UserService } from 'src/user/user.service';
 import { PrismaModule } from 'prisma/prisma.module';
 import { MailModule } from '../mail/mail.module';
 import { JwtService } from '@nestjs/jwt';
-import { JwtAuthGuard } from './strategies/jwt-auth.guard'; // Додайте цей імпорт
+import { JwtAuthGuard } from './strategies/jwt-auth.guard'; 
 import { MailService } from '../mail/mail.service';
 import * as dotenv from 'dotenv';
 
-dotenv.config();
-console.log('JWT_SECRET:', process.env.JWT_SECRET); // Логування значення
-console.log('Is JWT_SECRET defined?', !!process.env.JWT_SECRET); // Перевірка, чи визначена змінна
 
 
 @Module({
