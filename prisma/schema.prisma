@@ -27,6 +27,7 @@ model User {
   name    String?  @db.VarChar(255)
   profilePhoto String? @db.VarChar(255)
   email   String   @unique @db.VarChar(255)
+  resetToken    String?
   password String  @db.VarChar(255)
   createdAt DateTime @default(now())
   posts Post[]
