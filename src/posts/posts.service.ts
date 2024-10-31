@@ -23,7 +23,13 @@ export class PostsService {
                 image: createPostDto.image,
                 published: true,
                 authorId: userId,
+                categories: {
+                    create: createPostDto.categoryIds.map((categoryId) => ({
+                        categoryId: categoryId,
+                        assignedBy: user.name
+                    })),
             },
+        },
         });
         return post;
     }
@@ -99,5 +105,155 @@ export class PostsService {
                 },
             },
         });
+    }
+
+    async toggleLikePost(userId: number, postId: number) {
+        const user = await this.userService.findUserById(userId);
+        if (!user) {
+            throw new NotFoundException('User not found');
+        }
+    
+        const existingLike = await this.prisma.likes.findUnique({
+            where: {
+                postId_userId: {
+                    postId: postId,
+                    userId: userId,
+                },
+            },
+        });
+    
+        if (existingLike) {
+            await this.prisma.likes.delete({
+                where: {
+                    postId_userId: {
+                        postId: postId,
+                        userId: userId,
+                    },
+                },
+            });
+    
+            await this.prisma.post.update({
+                where: { id: postId },
+                data: {
+                    likesCount: { decrement: 1 }
+                },
+            });
+            return { message: 'Like has been removed successfully!' };
+        } else {
+            await this.prisma.likes.create({
+                data: {
+                    postId: postId,
+                    userId: userId,
+                },
+            });
+    
+            await this.prisma.post.update({
+                where: { id: postId },
+                data: {
+                    likesCount: { increment: 1 }
+                },
+            });
+            return { message: 'Like has been added successfully!' };
+        }
+    }
+    
+    async commentPost(userId: number, postId: number, content: string) {
+        const user = await this.userService.findUserById(userId);
+        if (!user) {
+            throw new NotFoundException('User not found');
+        }
+    
+        const post = await this.prisma.post.findUnique({
+            where: { id: postId }
+        });
+    
+        if (!post) {
+            throw new NotFoundException('Post not found');
+        }
+    
+        const comment = await this.prisma.comments.create({
+            data: {
+                postId: postId,
+                userId: userId,
+                content: content,
+            },
+        });
+    
+        await this.prisma.post.update({
+            where: { id: postId },
+            data: {
+                commentsCount: { increment: 1 },
+            },
+        });
+    
+        return comment;
+    }
+    
+    async deleteComment(userId: number, commentId: number) {
+        const user = await this.userService.findUserById(userId);
+        if (!user) {
+            throw new NotFoundException('User not found');
+        }
+    
+        const existingComment = await this.prisma.comments.findUnique({
+            where: { id: commentId },
+        });
+    
+        if (!existingComment) {
+            throw new NotFoundException('Comment not found');
+        }
+    
+        const post = await this.prisma.post.findUnique({
+            where: { id: existingComment.postId }
+        });
+    
+        if (!post) {
+            throw new NotFoundException('Post not found');
+        }
+    
+        if (existingComment.userId !== userId && post.authorId !== userId) {
+            throw new ForbiddenException('You do not have permission to delete this comment');
+        }
+    
+        await this.prisma.comments.delete({
+            where: { id: commentId } 
+        });
+    
+        await this.prisma.post.update({
+            where: { id: existingComment.postId },
+            data: {
+                commentsCount: { decrement: 1 },
+            },
+        });
+    
+        return { message: 'Comment has been deleted successfully!' };
+    }
+
+    async getAllComments(userId: number, postId: number) {
+        const user = await this.userService.findUserById(userId);
+        if (!user) {
+            throw new NotFoundException('User not found');
+        }
+        const post = await this.prisma.post.findUnique({
+            where: { id: postId },
+        });
+
+        if (!post) {
+            throw new NotFoundException('Post not found');
+        }
+        const comments =  await this.prisma.comments.findMany({
+            where: {postId: postId},
+            select: {
+                content: true,
+                commentedAt: true,
+                user: {
+                    select: {
+                        name:true,
+                        profilePhoto:true
+                    },
+                },
+            },
+        });
+        return comments;
     }
 }
