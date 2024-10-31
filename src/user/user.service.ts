@@ -22,6 +22,10 @@ export class UserService {
     return this.prisma.user.findUnique({ where: { email } });
   }
 
+  async findUserById(id: number) {
+    return this.prisma.user.findUnique({ where: { id } });
+  }
+
   async updatePassword(email: string, newPassword: string) {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await this.prisma.user.update({
