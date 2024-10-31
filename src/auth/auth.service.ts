@@ -6,6 +6,10 @@ import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { MailService } from '../mail/mail.service';
 import { v4 as uuidv4 } from 'uuid';
+import * as dotenv from 'dotenv';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+
+dotenv.config();
 
 @Injectable()
 export class AuthService {
@@ -16,6 +20,10 @@ export class AuthService {
     if (user) {
       throw new BadRequestException('User with this e-mail is already registered!');
     }
+    if (registerDto.password !== registerDto.confirmPassword) {
+      throw new BadRequestException('Password and confirm password do not match!');
+    }
+
     return this.userService.createUser(registerDto);
   }
 
@@ -44,7 +52,7 @@ export class AuthService {
     const resetToken = uuidv4();
     await this.userService.saveResetToken(user.id, resetToken);
 
-    const resetLink = `http://localhost:3000/auth/reset-password?token=${resetToken}&email=${email}`;
+    const resetLink = `${process.env.BASE_URL}/auth/reset-password?token=${resetToken}&email=${email}`;
     
     await this.mailService.sendEmail(
       user.email,
@@ -55,12 +63,16 @@ export class AuthService {
     return { message: 'Password reset email sent.' };
   }
 
-  async resetPassword(newPassword: string, token: string) {
+  async resetPassword(newPassword: string, token: string, resetPasswordDto: ResetPasswordDto) {
     const user = await this.userService.findUserByResetToken(token);
     if (!user) {
         throw new NotFoundException('Invalid or expired reset token.');
     }
 
+    if (newPassword !== resetPasswordDto.confirmNewPassword) {
+      throw new BadRequestException('New password and confirm password do not match!');
+  }
+  
     await this.userService.updatePassword(user.email, newPassword);
     await this.userService.clearResetToken(user.id); 
 
