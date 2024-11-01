@@ -18,7 +18,7 @@ import * as dotenv from 'dotenv';
     PrismaModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET, 
-      signOptions: { expiresIn: '24h' }, 
+      signOptions: { expiresIn: '1h' }, 
     }),
   ],
   providers: [AuthService, UserService, MailService, JwtAuthGuard],

@@ -22,7 +22,7 @@ export class MailService {
 
     async sendEmail(to: string, subject: string, text: string) {
         const mailOptions = {
-            from: `"Your Name" <${process.env.SMTP_USER}>`,
+            from: `"Forum Application" <${process.env.SMTP_USER}>`,
             to,
             subject,
             text,

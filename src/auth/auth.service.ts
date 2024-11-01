@@ -20,11 +20,6 @@ export class AuthService {
     if (user) {
       throw new BadRequestException('User with this e-mail is already registered!');
     }
-
-    if (registerDto.password !== registerDto.confirmPassword) {
-      throw new BadRequestException('Password and confirm password do not match!');
-    }
-
     return this.userService.createUser(registerDto);
   }
 
@@ -70,9 +65,6 @@ export class AuthService {
         throw new NotFoundException('Invalid or expired reset token.');
     }
 
-    if (newPassword !== resetPasswordDto.confirmNewPassword) {
-      throw new BadRequestException('New password and confirm password do not match!');
-  }
     await this.userService.updatePassword(user.email, newPassword);
     await this.userService.clearResetToken(user.id); 
 

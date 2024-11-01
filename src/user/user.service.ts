@@ -8,20 +8,23 @@ export class UserService {
   constructor(private prisma: PrismaService) {}
 
   async createUser(data: RegisterDto) {
-    const { confirmPassword, ...userData } = data; 
     const hashedPassword = await bcrypt.hash(data.password, 10);
     return this.prisma.user.create({
-        data: {
-            ...userData, 
-            password: hashedPassword, 
-            role: { connect: { id: 1 } } 
-        },
+      data: { 
+        ...data, 
+        password: hashedPassword,
+        role: { connect: { id: 1 } } 
+      },
     });
 }
 
 
   async findUserByEmail(email: string) {
     return this.prisma.user.findUnique({ where: { email } });
+  }
+
+  async findUserById(id: number) {
+    return this.prisma.user.findUnique({ where: { id } });
   }
 
   async updatePassword(email: string, newPassword: string) {
