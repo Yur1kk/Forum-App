@@ -189,7 +189,7 @@ export class PostsService {
         return comment;
     }
     
-    async deleteComment(userId: number, commentId: number) {
+    async deleteComment(userId: number, postId: number, commentId: number) {
         const user = await this.userService.findUserById(userId);
         if (!user) {
             throw new NotFoundException('User not found');
@@ -201,6 +201,10 @@ export class PostsService {
     
         if (!existingComment) {
             throw new NotFoundException('Comment not found');
+        }
+    
+        if (existingComment.postId !== postId) {
+            throw new ForbiddenException('Comment does not belong to the specified post');
         }
     
         const post = await this.prisma.post.findUnique({
@@ -216,7 +220,7 @@ export class PostsService {
         }
     
         await this.prisma.comments.delete({
-            where: { id: commentId } 
+            where: { id: commentId }
         });
     
         await this.prisma.post.update({
@@ -228,6 +232,7 @@ export class PostsService {
     
         return { message: 'Comment has been deleted successfully!' };
     }
+    
 
     async getAllComments(userId: number, postId: number) {
         const user = await this.userService.findUserById(userId);
