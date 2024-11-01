@@ -39,21 +39,30 @@ export class PostsService {
         if (!user) {
             throw new NotFoundException('User not found');
         }
+        
         const post = await this.prisma.post.findUnique({
-            where: { id: postId},
+            where: { id: postId },
         });
 
-    if (!post) {
-        throw new NotFoundException('Post not found');
-    }
+        if (!post) {
+            throw new NotFoundException('Post not found');
+        }
 
-    if (post.authorId !== userId) {
-        throw new ForbiddenException('You do not have permission to delete this post');
-    }
-    await this.prisma.post.delete({
-        where: {id: postId},
-    });
-    return {message: 'Post has been deleted succesfully!'};
+        if (post.published === false) {
+            await this.prisma.post.delete({
+                where: { id: postId },
+            });
+            return { message: 'Post has been deleted successfully!' };
+        }
+
+        if (post.authorId !== userId) {
+            throw new ForbiddenException('You do not have permission to delete this post');
+        }
+
+        await this.prisma.post.delete({
+            where: { id: postId },
+        });
+        return { message: 'Post has been deleted successfully!' };
     }
 
     async updatePost(userId: number, postId: number, updatePostDto: UpdatePostDto) {
@@ -61,27 +70,33 @@ export class PostsService {
         if (!user) {
             throw new NotFoundException('User not found');
         }
+
         const post = await this.prisma.post.findUnique({
-            where: { id: postId},
+            where: { id: postId },
         });
 
-    if (!post) {
-        throw new NotFoundException('Post not found');
-    }
+        if (!post) {
+            throw new NotFoundException('Post not found');
+        }
 
-    if (post.authorId !== userId) {
-        throw new ForbiddenException('You do not have permission to update this post');
-    }
-    const updatedPost = await this.prisma.post.update({
-        where: {id: postId},
-        data: {
-            title: updatePostDto.title ?? post.title,
-            content: updatePostDto.content ?? post.content,
-            image: updatePostDto.image ?? post.image,
-            published: updatePostDto.published ?? post.published,
-        },
-    });
-    return updatedPost;
+        if (post.published === false) {
+            throw new ForbiddenException('Cannot update an archived post');
+        }
+
+        if (post.authorId !== userId) {
+            throw new ForbiddenException('You do not have permission to update this post');
+        }
+
+        const updatedPost = await this.prisma.post.update({
+            where: { id: postId },
+            data: {
+                title: updatePostDto.title ?? post.title,
+                content: updatePostDto.content ?? post.content,
+                image: updatePostDto.image ?? post.image,
+                published: updatePostDto.published ?? post.published,
+            },
+        });
+        return updatedPost;
     }
 
     async getAllPosts(userId: number) {
@@ -90,6 +105,7 @@ export class PostsService {
             throw new NotFoundException('User not found');
         }
         return await this.prisma.post.findMany({
+            where: {published: true},
             select: {
                 id: true,
                 title: true,
@@ -107,6 +123,60 @@ export class PostsService {
         });
     }
 
+
+    async getArchivedPostsByUser(userId: number, targetUserId?: number) {
+        const user = await this.userService.findUserById(userId);
+        if (!user) {
+            throw new NotFoundException('User not found');
+        }
+    
+        const isAdmin = user.roleId === 2;
+    
+        if (isAdmin && targetUserId) {
+            return await this.prisma.post.findMany({
+                where: {
+                    authorId: targetUserId,
+                    published: false,
+                },
+                select: {
+                    id: true,
+                    title: true,
+                    content: true,
+                    image: true,
+                    likesCount: true,
+                    commentsCount: true,
+                    author: {
+                        select: {
+                            name: true,
+                            profilePhoto: true,
+                        },
+                    },
+                },
+            });
+        }
+    
+        return await this.prisma.post.findMany({
+            where: {
+                authorId: userId,
+                published: false,
+            },
+            select: {
+                id: true,
+                title: true,
+                content: true,
+                image: true,
+                likesCount: true,
+                commentsCount: true,
+                author: {
+                    select: {
+                        name: true,
+                        profilePhoto: true,
+                    },
+                },
+            },
+        });
+    }    
+    
     async toggleLikePost(userId: number, postId: number) {
         const user = await this.userService.findUserById(userId);
         if (!user) {
@@ -260,5 +330,52 @@ export class PostsService {
             },
         });
         return comments;
+    }
+    async archivePost(userId: number, postId: number) {
+        const user = await this.userService.findUserById(userId);
+        if (!user) {
+            throw new NotFoundException('User not found');
+        }
+
+        const post = await this.prisma.post.findUnique({
+            where: { id: postId },
+        });
+
+        if (!post) {
+            throw new NotFoundException('Post not found');
+        }
+
+        if (post.authorId !== userId && user.roleId !== 2) {
+            throw new ForbiddenException('You do not have permission to archive this post');
+        }
+
+        return await this.prisma.post.update({
+            where: { id: postId },
+            data: { published: false },
+        });
+    }
+
+    async unarchivePost(userId: number, postId: number) {
+        const user = await this.userService.findUserById(userId);
+        if (!user) {
+            throw new NotFoundException('User not found');
+        }
+
+        const post = await this.prisma.post.findUnique({
+            where: { id: postId },
+        });
+
+        if (!post) {
+            throw new NotFoundException('Post not found');
+        }
+
+        if (post.authorId !== userId && user.roleId !== 2) { 
+            throw new ForbiddenException('You do not have permission to unarchive this post');
+        }
+
+        return await this.prisma.post.update({
+            where: { id: postId },
+            data: { published: true }, 
+        });
     }
 }
