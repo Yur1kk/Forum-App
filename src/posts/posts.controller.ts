@@ -56,12 +56,13 @@ export class PostsController {
 
    @UseGuards(JwtAuthGuard)
    @Delete(':postId/comment/:commentId')
-   async deleteComment(@Param('id') postId:string, @Param('commentId') commentId: string, @Request() req) {
-     const userId = req.user.sub;
-     const postIdInt = parseInt(postId, 10);
-     const commentIdInt = parseInt(commentId, 10);
-     return this.postsService.deleteComment(userId, commentIdInt);
+   async deleteComment(@Param('postId') postId:string, @Param('commentId') commentId: string, @Request() req) {
+       const userId = req.user.sub;
+       const postIdInt = parseInt(postId, 10);
+       const commentIdInt = parseInt(commentId, 10);
+       return this.postsService.deleteComment(userId, postIdInt, commentIdInt);
    }
+   
 
    @UseGuards(JwtAuthGuard)
    @Get(':id/comments')
