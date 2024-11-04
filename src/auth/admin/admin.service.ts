@@ -123,12 +123,14 @@ export class AdminService {
 
   async deleteCategory(adminId: number, postCategoryId: number) {
     const admin = await this.userService.findUserById(adminId);
-    const postCategory = await this.prisma.category.findUnique({
-      where: {id: postCategoryId},
-    });
+
     if  (!admin || admin.roleId !== 2) {
       throw new NotFoundException('Only admins can create categories');
     }
+
+    const postCategory = await this.prisma.category.findUnique({
+      where: {id: postCategoryId},
+    });
 
     if (!postCategory) {
       throw new NotFoundException('Category does not exist');
@@ -141,12 +143,14 @@ export class AdminService {
 
   async updateCategory(adminId: number, postCategoryId: number, createCategoryDto: CreateCategoryDto) {
     const admin = await this.userService.findUserById(adminId);
-    const postCategory = await this.prisma.category.findUnique({
-      where: {id: postCategoryId},
-    });
+
     if  (!admin || admin.roleId !== 2) {
       throw new NotFoundException('Only admins can update categories');
     }
+
+    const postCategory = await this.prisma.category.findUnique({
+      where: {id: postCategoryId},
+    });
 
     if (!postCategory) {
       throw new NotFoundException('Category does not exist');
