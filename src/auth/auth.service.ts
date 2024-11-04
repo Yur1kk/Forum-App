@@ -15,7 +15,11 @@ dotenv.config();
 export class AuthService {
   constructor(private userService: UserService, private jwtService: JwtService, private mailService: MailService) {}
 
-  async register(registerDto: RegisterDto) {
+  async register(password: string, registerDto: RegisterDto) {
+    const { confirmPassword } = registerDto;
+    if (password !== confirmPassword) {
+      throw new BadRequestException('Passwords do not match!');
+    }
     const user = await this.userService.findUserByEmail(registerDto.email);
     if (user) {
       throw new BadRequestException('User with this e-mail is already registered!');
@@ -60,6 +64,11 @@ export class AuthService {
   }
 
   async resetPassword(newPassword: string, token: string, resetPasswordDto: ResetPasswordDto) {
+    const { confirmNewPassword } = resetPasswordDto;
+    if (newPassword !== confirmNewPassword) {
+      throw new BadRequestException('Passwords do not match!');
+    }
+
     const user = await this.userService.findUserByResetToken(token);
     if (!user) {
         throw new NotFoundException('Invalid or expired reset token.');

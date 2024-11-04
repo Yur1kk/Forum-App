@@ -44,7 +44,7 @@ export class PostsService {
             where: { id: postId },
         });
 
-        if (post.authorId !== userId) {
+        if (post.authorId !== userId && user.roleId !== 2) {
             throw new ForbiddenException('You do not have permission to delete this post');
         }
 
@@ -72,7 +72,7 @@ export class PostsService {
             throw new NotFoundException('Post not found');
         }
 
-        if (post.authorId !== userId) {
+        if (post.authorId !== userId && user.roleId !== 2) {
             throw new ForbiddenException('You do not have permission to update this post');
         }
 
@@ -88,13 +88,18 @@ export class PostsService {
         return updatedPost;
     }
 
-    async getAllPosts(userId: number) {
+    async getAllPosts(userId: number, page: number = 1, limit: number = 10) {
         const user = await this.userService.findUserById(userId);
         if (!user) {
             throw new NotFoundException('User not found');
         }
+    
+        const skip = (page - 1) * limit;
+    
         return await this.prisma.post.findMany({
-            where: {published: true},
+            where: { published: true },
+            skip: skip,
+            take: limit,
             select: {
                 id: true,
                 title: true,
@@ -113,7 +118,8 @@ export class PostsService {
     }
 
 
-   async getArchivedPostsByUser(userId: number, targetUserId?: number) {
+   async getArchivedPostsByUser(userId: number, targetUserId?: number, page: number = 1, limit: number = 10) {
+    const skip = (page - 1) * limit;
     const user = await this.userService.findUserById(userId);
     if (!user) {
         throw new NotFoundException('User not found');
@@ -127,6 +133,8 @@ export class PostsService {
             authorId: authorId,
             published: false,
         },
+        skip: skip,
+        take: limit,
         select: {
             id: true,
             title: true,
@@ -253,7 +261,7 @@ export class PostsService {
             throw new NotFoundException('Post not found');
         }
     
-        if (existingComment.userId !== userId && post.authorId !== userId) {
+        if (existingComment.userId !== userId && post.authorId !== userId && user.roleId !== 2) {
             throw new ForbiddenException('You do not have permission to delete this comment');
         }
     
@@ -272,7 +280,8 @@ export class PostsService {
     }
     
 
-    async getAllComments(userId: number, postId: number) {
+    async getAllComments(userId: number, postId: number, page: number = 1, limit: number = 10) {
+        const skip = (page - 1) * limit;
         const user = await this.userService.findUserById(userId);
         if (!user) {
             throw new NotFoundException('User not found');
@@ -286,6 +295,8 @@ export class PostsService {
         }
         const comments =  await this.prisma.comments.findMany({
             where: {postId: postId},
+            skip: skip,
+            take: limit,
             select: {
                 content: true,
                 commentedAt: true,
@@ -345,5 +356,36 @@ export class PostsService {
             where: { id: postId },
             data: { published: true }, 
         });
+    }
+
+    async filterPosts(userId: number, filters: { 
+        categoryId?: number; 
+        searchPhrase?: string;
+      }, page: number = 1, limit: number = 10) {
+        const skip = (page - 1) * limit;
+
+      return this.prisma.post.findMany({
+        where: {
+          ...(filters.categoryId && {
+            categories: {
+              some: {
+                categoryId: filters.categoryId,
+              },
+            },
+          }),
+          ...(filters.searchPhrase && {
+            OR: [
+              { title: { contains: filters.searchPhrase, mode: 'insensitive' } },
+              { content: { contains: filters.searchPhrase, mode: 'insensitive' } },
+            ],
+          }),
+        },
+        orderBy: [
+          {updatedAt: 'desc'},
+          {createdAt: 'desc'},
+        ],
+        skip: skip,
+        take: limit,
+      });
     }
 }

@@ -34,9 +34,11 @@ export class PostsController {
 
    @UseGuards(JwtAuthGuard)
    @Get()
-   async getAllPosts(@Request() req) {
-    const userId = req.user.sub; 
-        return this.postsService.getAllPosts(userId);
+   async getAllPosts(@Request() req, @Query('page') page: string = '1', @Query('limit') limit: string = '10') {
+    const userId = req.user.sub;
+    const pageNumber = parseInt(page, 10);
+    const limitNumber = parseInt(limit, 10);
+    return this.postsService.getAllPosts(userId, pageNumber, limitNumber);
    }
 
    @UseGuards(JwtAuthGuard)
@@ -67,10 +69,12 @@ export class PostsController {
 
    @UseGuards(JwtAuthGuard)
    @Get(':id/comments')
-   async getAllComments(@Param('id') postId: string, @Request() req){
+   async getAllComments(@Param('id') postId: string, @Request() req, @Query('page') page: string = '1', @Query('limit') limit: string = '10'){
     const userId = req.user.sub;
     const postIdInt = parseInt(postId, 10);
-    const comments = await this.postsService.getAllComments(userId, postIdInt)
+    const pageNumber = parseInt(page, 10);
+    const limitNumber = parseInt(limit, 10);
+    const comments = await this.postsService.getAllComments(userId, postIdInt, pageNumber, limitNumber)
     return {comments};
    }
 
@@ -92,11 +96,31 @@ export class PostsController {
 
    @Get('archived')
    @UseGuards(JwtAuthGuard)
-   async getArchivedPosts(@Request() req, @Query('targetUserId') targetUserId?: string) {
+   async getArchivedPosts(@Request() req, @Query('targetUserId') targetUserId?: string, @Query('page') page: string = '1', @Query('limit') limit: string = '10') {
      const userId = req.user.sub;
      const userIdInt = typeof userId === 'string' ? parseInt(userId, 10) : userId;
      const targetUserIdInt = targetUserId ? parseInt(targetUserId, 10) : undefined;
- 
-     return this.postsService.getArchivedPostsByUser(userIdInt, targetUserIdInt);
+     const pageNumber = parseInt(page, 10);
+     const limitNumber = parseInt(limit, 10);
+     return this.postsService.getArchivedPostsByUser(userIdInt, targetUserIdInt, pageNumber, limitNumber);
    }
+
+  @UseGuards(JwtAuthGuard) 
+  @Get('filter')
+  async filterPosts(
+    @Request() req,
+    @Query('categoryId') categoryId?: number,
+    @Query('searchPhrase') searchPhrase?: string,
+    @Query('page') page: string = '1', @Query('limit') limit: string = '10'
+  ) {
+    const userId = req.user.sub; 
+
+    const filters = {
+      categoryId: categoryId ? Number(categoryId) : undefined,
+      searchPhrase: searchPhrase ? String(searchPhrase) : undefined,
+    };
+    const pageNumber = parseInt(page, 10);
+    const limitNumber = parseInt(limit, 10);
+    return this.postsService.filterPosts(userId, filters, pageNumber, limitNumber);
+  }
 }

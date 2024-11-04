@@ -4,6 +4,8 @@ import * as bcrypt from 'bcrypt';
 import { RegisterAdminDto } from './dto/admin-register.dto';
 import { JwtService } from '@nestjs/jwt';
 import * as dotenv from 'dotenv';
+import { UserService } from 'src/user/user.service';
+import { CreateCategoryDto } from './dto/create-category.dto';
 
 dotenv.config();
 
@@ -12,8 +14,8 @@ export class AdminService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
+    private userService: UserService
   ) {}
-
   async registerAdmin(registerAdminDto: RegisterAdminDto, userId: number) {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
   
@@ -57,4 +59,109 @@ export class AdminService {
       },
     });
   }  
+
+  async deleteUser(adminId: number, userId: number) {
+    const admin = await this.userService.findUserById(adminId);
+  
+    if (!admin || admin.roleId !== 2) {
+      throw new NotFoundException('Only admins can delete users');
+    }
+    const user = await this.userService.findUserById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found!');
+    }
+
+    await this.prisma.user.delete({
+      where: { id: userId },
+  });
+  return { message: 'User has been deleted successfully!' };
+}
+
+  async deleteAdmin(adminPass: string, adminId: number, adminToDeleteId: number) {
+    const admin = await this.userService.findUserById(adminId);
+    const adminToDelete = await this.userService.findUserById(adminToDeleteId);
+
+    if (!admin || admin.roleId !== 2) {
+      throw new NotFoundException('Only admins can delete admins');
+    }
+
+    if (adminPass !== process.env.ADMIN_PASSWORD) {
+      throw new BadRequestException('Invalid admin password');
+  }
+
+    
+    if (adminToDelete.roleId !== 2) {
+      throw new BadRequestException('User is not admin');
+    }
+
+    if (!adminToDelete) {
+      throw new NotFoundException('Admin not found!');
+    }
+
+    await this.prisma.user.delete({
+      where: {id : adminToDeleteId},
+    });
+
+    return {message: 'Admin has been deleted succesfully!'};
+  }
+
+  async createCategory(name: string, adminId: number) {
+    const admin = await this.userService.findUserById(adminId);
+
+    if (!admin || admin.roleId !== 2) {
+      throw new NotFoundException('Only admins can create categories');
+    }
+
+    await this.prisma.category.create({
+      data: {
+        name,
+      },
+    });
+
+    return {message: 'Category has been created succesfully!'};
+  }
+
+  async deleteCategory(adminId: number, postCategoryId: number) {
+    const admin = await this.userService.findUserById(adminId);
+
+    if  (!admin || admin.roleId !== 2) {
+      throw new NotFoundException('Only admins can create categories');
+    }
+
+    const postCategory = await this.prisma.category.findUnique({
+      where: {id: postCategoryId},
+    });
+
+    if (!postCategory) {
+      throw new NotFoundException('Category does not exist');
+    }
+    await this.prisma.category.delete({
+      where: {id: postCategoryId},
+    });
+    return {message: 'Category has been deleted succesfully!'};
+  }
+
+  async updateCategory(adminId: number, postCategoryId: number, createCategoryDto: CreateCategoryDto) {
+    const admin = await this.userService.findUserById(adminId);
+
+    if  (!admin || admin.roleId !== 2) {
+      throw new NotFoundException('Only admins can update categories');
+    }
+
+    const postCategory = await this.prisma.category.findUnique({
+      where: {id: postCategoryId},
+    });
+
+    if (!postCategory) {
+      throw new NotFoundException('Category does not exist');
+    }
+
+    await this.prisma.category.update({
+      where: {id: postCategoryId},
+      data: {
+        name: createCategoryDto.name,
+      },
+    });
+    return {message: 'Category name has been updated succesfully!'};
+  }
 }
