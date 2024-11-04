@@ -1,4 +1,4 @@
-import { IsOptional, IsString, IsBoolean } from 'class-validator';
+import { IsOptional, IsString, IsBoolean, IsArray, IsInt } from 'class-validator';
 
 export class UpdatePostDto {
     @IsOptional()
@@ -16,4 +16,9 @@ export class UpdatePostDto {
     @IsOptional()
     @IsBoolean()
     published?: boolean;
+    
+    @IsOptional()
+    @IsArray()
+    @IsInt({ each: true }) 
+    categoryIds: number[];
 }
