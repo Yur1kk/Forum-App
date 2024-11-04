@@ -93,9 +93,10 @@ export class PostsController {
    @Get('archived')
    @UseGuards(JwtAuthGuard)
    async getArchivedPosts(@Request() req, @Query('targetUserId') targetUserId?: string) {
-       const userId = req.user.sub; 
-       const userIdInt = typeof userId === 'string' ? parseInt(userId) : userId;
-       const targetUserIdInt = targetUserId ? parseInt(targetUserId) : undefined;
-       return this.postsService.getArchivedPostsByUser(userIdInt, targetUserIdInt);
+     const userId = req.user.sub;
+     const userIdInt = typeof userId === 'string' ? parseInt(userId, 10) : userId;
+     const targetUserIdInt = targetUserId ? parseInt(targetUserId, 10) : undefined;
+ 
+     return this.postsService.getArchivedPostsByUser(userIdInt, targetUserIdInt);
    }
 }
