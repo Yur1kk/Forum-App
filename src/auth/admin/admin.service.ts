@@ -18,7 +18,7 @@ export class AdminService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
   
     if (!user || user.roleId !== 2) {
-      throw new BadRequestException('Only admins can create new admin users');
+      throw new NotFoundException('Only admins can create new admin users');
     }
   
     if (registerAdminDto.adminPassword !== process.env.ADMIN_PASSWORD) {
