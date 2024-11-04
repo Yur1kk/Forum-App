@@ -5,6 +5,7 @@ import { RegisterAdminDto } from './dto/admin-register.dto';
 import { JwtService } from '@nestjs/jwt';
 import * as dotenv from 'dotenv';
 import { UserService } from 'src/user/user.service';
+import { CreateCategoryDto } from './dto/create-category.dto';
 
 dotenv.config();
 
@@ -102,5 +103,61 @@ export class AdminService {
     });
 
     return {message: 'Admin has been deleted succesfully!'};
+  }
+
+  async createCategory(name: string, adminId: number) {
+    const admin = await this.userService.findUserById(adminId);
+
+    if (!admin || admin.roleId !== 2) {
+      throw new NotFoundException('Only admins can create categories');
+    }
+
+    await this.prisma.category.create({
+      data: {
+        name,
+      },
+    });
+
+    return {message: 'Category has been created succesfully!'};
+  }
+
+  async deleteCategory(adminId: number, postCategoryId: number) {
+    const admin = await this.userService.findUserById(adminId);
+    const postCategory = await this.prisma.category.findUnique({
+      where: {id: postCategoryId},
+    });
+    if  (!admin || admin.roleId !== 2) {
+      throw new NotFoundException('Only admins can create categories');
+    }
+
+    if (!postCategory) {
+      throw new NotFoundException('Category does not exist');
+    }
+    await this.prisma.category.delete({
+      where: {id: postCategoryId},
+    });
+    return {message: 'Category has been deleted succesfully!'};
+  }
+
+  async updateCategory(adminId: number, postCategoryId: number, createCategoryDto: CreateCategoryDto) {
+    const admin = await this.userService.findUserById(adminId);
+    const postCategory = await this.prisma.category.findUnique({
+      where: {id: postCategoryId},
+    });
+    if  (!admin || admin.roleId !== 2) {
+      throw new NotFoundException('Only admins can update categories');
+    }
+
+    if (!postCategory) {
+      throw new NotFoundException('Category does not exist');
+    }
+
+    await this.prisma.category.update({
+      where: {id: postCategoryId},
+      data: {
+        name: createCategoryDto.name,
+      },
+    });
+    return {message: 'Category name has been updated succesfully!'};
   }
 }
