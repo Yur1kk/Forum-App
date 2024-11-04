@@ -39,24 +39,17 @@ export class PostsService {
         if (!user) {
             throw new NotFoundException('User not found');
         }
-        
+
         const post = await this.prisma.post.findUnique({
             where: { id: postId },
         });
 
-        if (!post) {
-            throw new NotFoundException('Post not found');
-        }
-
-        if (post.published === false) {
-            await this.prisma.post.delete({
-                where: { id: postId },
-            });
-            return { message: 'Post has been deleted successfully!' };
-        }
-
         if (post.authorId !== userId) {
             throw new ForbiddenException('You do not have permission to delete this post');
+        }
+
+        if (!post) {
+            throw new NotFoundException('Post not found');
         }
 
         await this.prisma.post.delete({
@@ -77,10 +70,6 @@ export class PostsService {
 
         if (!post) {
             throw new NotFoundException('Post not found');
-        }
-
-        if (post.published === false) {
-            throw new ForbiddenException('Cannot update an archived post');
         }
 
         if (post.authorId !== userId) {
@@ -124,58 +113,37 @@ export class PostsService {
     }
 
 
-    async getArchivedPostsByUser(userId: number, targetUserId?: number) {
-        const user = await this.userService.findUserById(userId);
-        if (!user) {
-            throw new NotFoundException('User not found');
-        }
-    
-        const isAdmin = user.roleId === 2;
-    
-        if (isAdmin && targetUserId) {
-            return await this.prisma.post.findMany({
-                where: {
-                    authorId: targetUserId,
-                    published: false,
-                },
+   async getArchivedPostsByUser(userId: number, targetUserId?: number) {
+    const user = await this.userService.findUserById(userId);
+    if (!user) {
+        throw new NotFoundException('User not found');
+    }
+
+    const isAdmin = user.roleId === 2;
+    const authorId = isAdmin && targetUserId ? targetUserId : userId;
+
+    return await this.prisma.post.findMany({
+        where: {
+            authorId: authorId,
+            published: false,
+        },
+        select: {
+            id: true,
+            title: true,
+            content: true,
+            image: true,
+            likesCount: true,
+            commentsCount: true,
+            author: {
                 select: {
-                    id: true,
-                    title: true,
-                    content: true,
-                    image: true,
-                    likesCount: true,
-                    commentsCount: true,
-                    author: {
-                        select: {
-                            name: true,
-                            profilePhoto: true,
-                        },
-                    },
-                },
-            });
-        }
-    
-        return await this.prisma.post.findMany({
-            where: {
-                authorId: userId,
-                published: false,
-            },
-            select: {
-                id: true,
-                title: true,
-                content: true,
-                image: true,
-                likesCount: true,
-                commentsCount: true,
-                author: {
-                    select: {
-                        name: true,
-                        profilePhoto: true,
-                    },
+                    name: true,
+                    profilePhoto: true,
                 },
             },
-        });
-    }    
+        },
+    });
+}
+ 
     
     async toggleLikePost(userId: number, postId: number) {
         const user = await this.userService.findUserById(userId);
