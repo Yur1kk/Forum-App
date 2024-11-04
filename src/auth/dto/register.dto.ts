@@ -13,7 +13,6 @@ export class RegisterDto {
   password: string;
 
   @IsString()
-  @IsOptional()
   name?: string;
 
   @IsString()
