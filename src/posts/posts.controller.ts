@@ -1,12 +1,13 @@
-import { Controller, Post, Body, UseGuards, Request, Delete, Param, Patch, Get} from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Request, Delete, Param, Patch, Get, Query, NotFoundException} from '@nestjs/common';
 import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { JwtAuthGuard } from '../auth/strategies/jwt-auth.guard';
 import { UpdatePostDto } from './dto/update-post.dto';
+import { UserService } from 'src/user/user.service';
 
 @Controller('posts')
 export class PostsController {
-   constructor(private postsService: PostsService) {}
+   constructor(private postsService: PostsService, private userService: UserService) {}
 
    @UseGuards(JwtAuthGuard)
    @Post('create-post')
@@ -71,5 +72,31 @@ export class PostsController {
     const postIdInt = parseInt(postId, 10);
     const comments = await this.postsService.getAllComments(userId, postIdInt)
     return {comments};
+   }
+
+   @UseGuards(JwtAuthGuard)
+   @Patch(':id/archive')
+   async archivePost(@Param('id') postId: string, @Request() req) {
+       const userId = req.user.sub;
+       const postIdInt = parseInt(postId, 10);
+       return this.postsService.archivePost(userId, postIdInt);
+   }
+
+   @UseGuards(JwtAuthGuard)
+   @Patch(':id/unarchive')
+   async unarchivePost(@Param('id') postId: string, @Request() req) {
+       const userId = req.user.sub;
+       const postIdInt = parseInt(postId, 10);
+       return this.postsService.unarchivePost(userId, postIdInt);
+   }
+
+   @Get('archived')
+   @UseGuards(JwtAuthGuard)
+   async getArchivedPosts(@Request() req, @Query('targetUserId') targetUserId?: string) {
+     const userId = req.user.sub;
+     const userIdInt = typeof userId === 'string' ? parseInt(userId, 10) : userId;
+     const targetUserIdInt = targetUserId ? parseInt(targetUserId, 10) : undefined;
+ 
+     return this.postsService.getArchivedPostsByUser(userIdInt, targetUserIdInt);
    }
 }
