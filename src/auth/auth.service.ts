@@ -8,6 +8,7 @@ import { MailService } from '../mail/mail.service';
 import { v4 as uuidv4 } from 'uuid';
 import * as dotenv from 'dotenv';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import * as axios from 'axios';
 
 dotenv.config();
 
@@ -78,5 +79,49 @@ export class AuthService {
     await this.userService.clearResetToken(user.id); 
 
     return { message: 'Password has been reset successfully.' };
+}
+
+async getGoogleTokens(code: string): Promise<any> {
+  const { data } = await axios.default.post(`https://oauth2.googleapis.com/token`, null, {
+    params: {
+      code,
+      client_id: process.env.GOOGLE_CLIENT_ID,
+      client_secret: process.env.GOOGLE_CLIENT_SECRET,
+      redirect_uri: `${process.env.BASE_URL}/auth/google/callback`,
+      grant_type: 'authorization_code',
+    },
+  });
+
+  return data;
+}
+
+async validateUser(accessToken: string): Promise<any> {
+  const { data } = await axios.default.get(`https://www.googleapis.com/oauth2/v2/userinfo`, {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+    },
+  });
+
+  let user = await this.userService.findUserByEmail(data.email);
+
+  if (!user) {
+
+    const registerDto: RegisterDto = {
+      email: data.email,
+      name: data.name,
+      profilePhoto: data.picture,
+      password: '', 
+      confirmPassword: '', 
+    };
+
+    user = await this.userService.createUser(registerDto);
+  }
+
+  return user;
+}
+
+createJwtToken(user: any): string {
+  const payload = { email: user.email, sub: user.id };
+  return this.jwtService.sign(payload);
 }
 }
