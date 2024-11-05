@@ -82,7 +82,7 @@ export class AuthService {
 }
 
 async getGoogleTokens(code: string): Promise<any> {
-  const { data } = await axios.default.post(`https://oauth2.googleapis.com/token`, null, {
+  const { data } = await axios.default.post(process.env.GET_GOOLE_TOKEN, null, {
     params: {
       code,
       client_id: process.env.GOOGLE_CLIENT_ID,
@@ -96,7 +96,7 @@ async getGoogleTokens(code: string): Promise<any> {
 }
 
 async validateUser(accessToken: string): Promise<any> {
-  const { data } = await axios.default.get(`https://www.googleapis.com/oauth2/v2/userinfo`, {
+  const { data } = await axios.default.get(process.env.VALIDATE_USER, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
     },
