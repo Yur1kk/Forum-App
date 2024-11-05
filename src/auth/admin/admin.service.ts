@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { RegisterAdminDto } from './dto/admin-register.dto';
@@ -24,7 +24,7 @@ export class AdminService {
     }
   
     if (registerAdminDto.adminPassword !== process.env.ADMIN_PASSWORD) {
-      throw new NotFoundException();
+      throw new NotFoundException('Invalid admin password!');
     }
   
     const newAdmin = await this.createAdmin(registerAdminDto);
@@ -39,7 +39,7 @@ export class AdminService {
     const { confirmPassword, adminPassword, ...userData } = data; 
   
     if (data.password !== confirmPassword) {
-      throw new NotFoundException();
+      throw new BadRequestException('Passwords do not match!');
     }
 
     const existingUser = await this.prisma.user.findUnique({
@@ -47,7 +47,7 @@ export class AdminService {
       });
     
       if (existingUser) {
-        throw new NotFoundException();
+        throw new BadRequestException('User or Admin with this email already exists');
       }
   
     const hashedPassword = await bcrypt.hash(data.password, 10);
@@ -67,8 +67,13 @@ export class AdminService {
       throw new NotFoundException();
     }
     const user = await this.userService.findUserById(userId);
+
+    if(user.roleId === 2) {
+      throw new BadRequestException('User has admin role. Deletion prevented!')
+    }
+
     if (!user) {
-      throw new NotFoundException();
+      throw new NotFoundException('User not found!');
     }
 
     await this.prisma.user.delete({
@@ -86,16 +91,16 @@ export class AdminService {
     }
 
     if (adminPass !== process.env.ADMIN_PASSWORD) {
-      throw new NotFoundException();
+      throw new NotFoundException('Invalid admin password!');
   }
 
     
     if (adminToDelete.roleId !== 2) {
-      throw new NotFoundException();
+      throw new BadRequestException('User that you want to delete is not admin. Deletion prevented!');
     }
 
     if (!adminToDelete) {
-      throw new NotFoundException();
+      throw new NotFoundException('Admin not found!');
     }
 
     await this.prisma.user.delete({
@@ -133,7 +138,7 @@ export class AdminService {
     });
 
     if (!postCategory) {
-      throw new NotFoundException();
+      throw new NotFoundException('Post category not found!');
     }
     await this.prisma.category.delete({
       where: {id: postCategoryId},
@@ -154,7 +159,7 @@ export class AdminService {
     });
 
     if (!postCategory) {
-      throw new NotFoundException();
+      throw new NotFoundException('Post category not found!');
     }
 
     return await prisma.category.update({
