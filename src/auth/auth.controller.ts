@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Req, Get, BadRequestException, Query} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -33,4 +33,18 @@ export class AuthController {
     const token = request.query.token as string; 
     return this.authService.resetPassword(body.newPassword, token, body);
   }  
+
+  @Get('google/callback')
+  async googleCallback(@Query('code') code: string): Promise<any> {
+    if (!code) {
+      throw new BadRequestException('No code provided');
+    }
+    
+    const tokens = await this.authService.getGoogleTokens(code);
+    const user = await this.authService.validateUser(tokens.access_token);
+    
+    const jwtToken = this.authService.createJwtToken(user);
+    
+    return { access_token: jwtToken };
+  }
 }
