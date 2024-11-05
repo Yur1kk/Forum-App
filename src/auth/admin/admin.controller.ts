@@ -1,4 +1,4 @@
-import { Controller, Post, Body, Request, UseGuards, BadRequestException, Param, Delete, Patch } from '@nestjs/common';
+import { Controller, Post, Body, Request, UseGuards, Param, Delete, Patch } from '@nestjs/common';
 import { AdminService } from './admin.service';
 import { JwtAuthGuard } from '../strategies/jwt-auth.guard';
 import { RegisterAdminDto } from './dto/admin-register.dto';

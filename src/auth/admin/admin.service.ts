@@ -20,11 +20,11 @@ export class AdminService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
   
     if (!user || user.roleId !== 2) {
-      throw new NotFoundException('Only admins can create new admin users');
+      throw new NotFoundException();
     }
   
     if (registerAdminDto.adminPassword !== process.env.ADMIN_PASSWORD) {
-      throw new BadRequestException('Invalid admin password');
+      throw new NotFoundException('Invalid admin password!');
     }
   
     const newAdmin = await this.createAdmin(registerAdminDto);
@@ -39,7 +39,7 @@ export class AdminService {
     const { confirmPassword, adminPassword, ...userData } = data; 
   
     if (data.password !== confirmPassword) {
-      throw new BadRequestException('Passwords do not match');
+      throw new BadRequestException('Passwords do not match!');
     }
 
     const existingUser = await this.prisma.user.findUnique({
@@ -47,7 +47,7 @@ export class AdminService {
       });
     
       if (existingUser) {
-        throw new BadRequestException('User with this email already exists');
+        throw new BadRequestException('User or Admin with this email already exists');
       }
   
     const hashedPassword = await bcrypt.hash(data.password, 10);
@@ -64,9 +64,14 @@ export class AdminService {
     const admin = await this.userService.findUserById(adminId);
   
     if (!admin || admin.roleId !== 2) {
-      throw new NotFoundException('Only admins can delete users');
+      throw new NotFoundException();
     }
     const user = await this.userService.findUserById(userId);
+
+    if(user.roleId === 2) {
+      throw new BadRequestException('User has admin role. Deletion prevented!')
+    }
+
     if (!user) {
       throw new NotFoundException('User not found!');
     }
@@ -82,16 +87,16 @@ export class AdminService {
     const adminToDelete = await this.userService.findUserById(adminToDeleteId);
 
     if (!admin || admin.roleId !== 2) {
-      throw new NotFoundException('Only admins can delete admins');
+      throw new NotFoundException();
     }
 
     if (adminPass !== process.env.ADMIN_PASSWORD) {
-      throw new BadRequestException('Invalid admin password');
+      throw new NotFoundException('Invalid admin password!');
   }
 
     
     if (adminToDelete.roleId !== 2) {
-      throw new BadRequestException('User is not admin');
+      throw new BadRequestException('User that you want to delete is not admin. Deletion prevented!');
     }
 
     if (!adminToDelete) {
@@ -109,7 +114,7 @@ export class AdminService {
     const admin = await this.userService.findUserById(adminId);
 
     if (!admin || admin.roleId !== 2) {
-      throw new NotFoundException('Only admins can create categories');
+      throw new NotFoundException();
     }
 
     await this.prisma.category.create({
@@ -125,7 +130,7 @@ export class AdminService {
     const admin = await this.userService.findUserById(adminId);
 
     if  (!admin || admin.roleId !== 2) {
-      throw new NotFoundException('Only admins can create categories');
+      throw new NotFoundException();
     }
 
     const postCategory = await this.prisma.category.findUnique({
@@ -133,7 +138,7 @@ export class AdminService {
     });
 
     if (!postCategory) {
-      throw new NotFoundException('Category does not exist');
+      throw new NotFoundException('Post category not found!');
     }
     await this.prisma.category.delete({
       where: {id: postCategoryId},
@@ -145,23 +150,26 @@ export class AdminService {
     const admin = await this.userService.findUserById(adminId);
 
     if  (!admin || admin.roleId !== 2) {
-      throw new NotFoundException('Only admins can update categories');
+      throw new NotFoundException();
     }
 
-    const postCategory = await this.prisma.category.findUnique({
+    const updatedPostCategory = await this.prisma.$transaction(async (prisma) => {
+    const postCategory = await prisma.category.findUnique({
       where: {id: postCategoryId},
     });
 
     if (!postCategory) {
-      throw new NotFoundException('Category does not exist');
+      throw new NotFoundException('Post category not found!');
     }
 
-    await this.prisma.category.update({
+    return await prisma.category.update({
       where: {id: postCategoryId},
       data: {
         name: createCategoryDto.name,
       },
     });
-    return {message: 'Category name has been updated succesfully!'};
-  }
+    
+  });
+  return {message: 'Category name has been updated succesfully!', updatedPostCategory};
+}
 }

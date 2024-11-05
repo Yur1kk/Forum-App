@@ -63,28 +63,52 @@ export class PostsService {
         if (!user) {
             throw new NotFoundException('User not found');
         }
-
+    
         const post = await this.prisma.post.findUnique({
             where: { id: postId },
         });
-
+    
         if (!post) {
             throw new NotFoundException('Post not found');
         }
-
+    
         if (post.authorId !== userId && user.roleId !== 2) {
             throw new ForbiddenException('You do not have permission to update this post');
         }
-
-        const updatedPost = await this.prisma.post.update({
-            where: { id: postId },
-            data: {
-                title: updatePostDto.title ?? post.title,
-                content: updatePostDto.content ?? post.content,
-                image: updatePostDto.image ?? post.image,
-                published: updatePostDto.published ?? post.published,
-            },
+    
+        const updatedPost = await this.prisma.$transaction(async (prisma) => {
+            const postUpdate = await prisma.post.update({
+                where: { id: postId },
+                data: {
+                    title: updatePostDto.title ?? post.title,
+                    content: updatePostDto.content ?? post.content,
+                    image: updatePostDto.image ?? post.image,
+                    published: updatePostDto.published ?? post.published,
+                },
+                include: {
+                    categories: true,
+                },
+            });
+    
+            if (updatePostDto.categoryIds) {
+                await prisma.postCategories.deleteMany({
+                    where: { postId: postId },
+                });
+    
+                const categoryData = updatePostDto.categoryIds.map((categoryId) => ({
+                    postId: postId,
+                    categoryId: categoryId,
+                    assignedBy: user.name || 'unknown', 
+                }));
+    
+                await prisma.postCategories.createMany({
+                    data: categoryData,
+                });
+            }
+    
+            return postUpdate;
         });
+    
         return updatedPost;
     }
 
@@ -361,7 +385,7 @@ export class PostsService {
     async filterPosts(userId: number, filters: { 
         categoryId?: number; 
         searchPhrase?: string;
-      }, page: number = 1, limit: number = 10) {
+      }, page: number = 1, limit: number = 10, orderBy: 'asc' | 'desc' = 'desc') {
         const skip = (page - 1) * limit;
 
       return this.prisma.post.findMany({
@@ -381,8 +405,8 @@ export class PostsService {
           }),
         },
         orderBy: [
-          {updatedAt: 'desc'},
-          {createdAt: 'desc'},
+          {updatedAt: orderBy},
+          {createdAt: orderBy},
         ],
         skip: skip,
         take: limit,

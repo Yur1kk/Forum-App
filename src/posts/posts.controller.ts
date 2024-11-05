@@ -111,7 +111,8 @@ export class PostsController {
     @Request() req,
     @Query('categoryId') categoryId?: number,
     @Query('searchPhrase') searchPhrase?: string,
-    @Query('page') page: string = '1', @Query('limit') limit: string = '10'
+    @Query('page') page: string = '1', @Query('limit') limit: string = '10',
+    @Query('orderBy') orderBy: 'asc' | 'desc' = 'desc'
   ) {
     const userId = req.user.sub; 
 
@@ -121,6 +122,6 @@ export class PostsController {
     };
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
-    return this.postsService.filterPosts(userId, filters, pageNumber, limitNumber);
+    return this.postsService.filterPosts(userId, filters, pageNumber, limitNumber, orderBy);
   }
 }
