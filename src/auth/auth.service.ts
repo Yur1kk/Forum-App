@@ -38,7 +38,7 @@ export class AuthService {
     if (!isPasswordMatching) {
       throw new BadRequestException('Passwords do not match!');
     }
-    const payload = { email: user.email, sub: user.id };
+    const payload = { email: user.email, sub: user.id, roleId: user.roleId };
     return {
       access_token: this.jwtService.sign(payload),
     };
