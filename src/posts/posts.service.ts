@@ -5,6 +5,7 @@ import { JwtService } from '@nestjs/jwt';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { LoggerService } from 'src/logger/logger.service';
+import { CreateUserActionLogDto } from 'src/logger/dto/logger.dto';
 
 @Injectable()
 export class PostsService {
@@ -32,14 +33,14 @@ export class PostsService {
             },
         },
         });
-        await this.loggerService.logActions(
-            userId,
-            'Create',
-            'Post',
-            post.id,
-            post
-        );
-
+        const logDto = new CreateUserActionLogDto();
+        logDto.action = 'Create';
+        logDto.userId = userId;
+        logDto.entityType = 'Post';
+        logDto.entityId = post.id;
+        logDto.entity = JSON.stringify(post);
+    
+        await this.loggerService.logActions(logDto);
         return post;
     }
 
@@ -65,13 +66,14 @@ export class PostsService {
             where: { id: postId },
         });
 
-        await this.loggerService.logActions(
-            userId,
-            'Delete',
-            'Post',
-            post.id,
-            post
-        );
+        const logDto = new CreateUserActionLogDto();
+        logDto.action = 'Delete';
+        logDto.userId = userId;
+        logDto.entityType = 'Post';
+        logDto.entityId = post.id;
+        logDto.entity = JSON.stringify(post);
+    
+        await this.loggerService.logActions(logDto);
         return { message: 'Post has been deleted successfully!' };
     }
 
@@ -125,13 +127,14 @@ export class PostsService {
     
             return postUpdate;
         });
-        await this.loggerService.logActions(
-            userId,
-            'Update',
-            'Post',
-            post.id,
-            post
-        );
+        const logDto = new CreateUserActionLogDto();
+        logDto.action = 'Update';
+        logDto.userId = userId;
+        logDto.entityType = 'Post';
+        logDto.entityId = post.id;
+        logDto.entity = JSON.stringify(post);
+    
+        await this.loggerService.logActions(logDto);
         return updatedPost;
     }
 
@@ -164,13 +167,14 @@ export class PostsService {
         });
 
         for (const post of posts) {
-            await this.loggerService.logActions(
-                userId,
-                'Viewed',
-                'Post',
-                post.id,
-                post
-            );
+            const logDto = new CreateUserActionLogDto();
+            logDto.action = 'Viewed';
+            logDto.userId = userId;
+            logDto.entityType = 'Post';
+            logDto.entityId = post.id;
+            logDto.entity = JSON.stringify(post);
+        
+            await this.loggerService.logActions(logDto);
         };
         return posts;
     }
@@ -209,13 +213,14 @@ export class PostsService {
         },
     });
     for (const post of posts) {
-        await this.loggerService.logActions(
-            userId,
-            'Viewed',
-            'Post',
-            post.id,
-            post
-        )
+        const logDto = new CreateUserActionLogDto();
+        logDto.action = 'Viewed';
+        logDto.userId = userId;
+        logDto.entityType = 'Post';
+        logDto.entityId = post.id;
+        logDto.entity = JSON.stringify(post);
+    
+        await this.loggerService.logActions(logDto);
     }
     return posts;
 }
@@ -253,13 +258,14 @@ export class PostsService {
                 },
             });
             
-            await this.loggerService.logActions(
-                userId,
-                'Create',
-                'PostLike',
-                 postId,
-                 {postId, userId}
-        )
+            const logDto = new CreateUserActionLogDto();
+            logDto.action = 'Create';
+            logDto.userId = userId;
+            logDto.entityType = 'Post';
+            logDto.entityId = postId;
+            logDto.entity = JSON.stringify({postId, userId});
+        
+            await this.loggerService.logActions(logDto);
 
             return { message: 'Like has been removed successfully!' };
         } else {
@@ -276,13 +282,14 @@ export class PostsService {
                     likesCount: { increment: 1 }
                 },
             });
-            await this.loggerService.logActions(
-                userId,
-                'Delete',
-                'PostLike',
-                 postId,
-                 {postId, userId}
-        )
+            const logDto = new CreateUserActionLogDto();
+            logDto.action = 'Delete';
+            logDto.userId = userId;
+            logDto.entityType = 'Post';
+            logDto.entityId = postId;
+            logDto.entity = JSON.stringify({postId, userId});
+        
+            await this.loggerService.logActions(logDto);
             return { message: 'Like has been added successfully!' };
         }
     }
@@ -315,13 +322,14 @@ export class PostsService {
                 commentsCount: { increment: 1 },
             },
         });
-        await this.loggerService.logActions(
-            userId,
-            'Create',
-            'Comment',
-             comment.id,
-             comment
-    )
+        const logDto = new CreateUserActionLogDto();
+        logDto.action = 'Create';
+        logDto.userId = userId;
+        logDto.entityType = 'Post';
+        logDto.entityId = comment.id;
+        logDto.entity = JSON.stringify(comment);
+    
+        await this.loggerService.logActions(logDto);
         return comment;
     }
     
@@ -365,13 +373,14 @@ export class PostsService {
                 commentsCount: { decrement: 1 },
             },
         });
-        await this.loggerService.logActions(
-            userId,
-            'Delete',
-            'Comment',
-             commentId,
-             existingComment
-    )
+        const logDto = new CreateUserActionLogDto();
+        logDto.action = 'Delete';
+        logDto.userId = userId;
+        logDto.entityType = 'Comment';
+        logDto.entityId = commentId;
+        logDto.entity = JSON.stringify(existingComment);
+    
+        await this.loggerService.logActions(logDto);
         return { message: 'Comment has been deleted successfully!' };
     }
     
@@ -407,13 +416,14 @@ export class PostsService {
         });
         
         for (const comment of comments) {
-            await this.loggerService.logActions(
-                userId,
-                'Viewed',
-                'Comment',
-                 comment.id,
-                 comment
-        )
+            const logDto = new CreateUserActionLogDto();
+            logDto.action = 'Viewed';
+            logDto.userId = userId;
+            logDto.entityType = 'Comment';
+            logDto.entityId = comment.id;
+            logDto.entity = JSON.stringify(comment);
+        
+            await this.loggerService.logActions(logDto);
         }
         return comments;
     }
@@ -439,13 +449,14 @@ export class PostsService {
             where: { id: postId },
             data: { published: false },
         });
-        await this.loggerService.logActions(
-            userId,
-            'Update',
-            'Post',
-            postId,
-            post
-        );
+        const logDto = new CreateUserActionLogDto();
+        logDto.action = 'Update';
+        logDto.userId = userId;
+        logDto.entityType = 'Post';
+        logDto.entityId = postId;
+        logDto.entity = JSON.stringify(post);
+    
+        await this.loggerService.logActions(logDto);
         return archivedPost;
     }
 
@@ -471,13 +482,14 @@ export class PostsService {
             where: { id: postId },
             data: { published: true }, 
         });
-        await this.loggerService.logActions(
-            userId,
-            'Update',
-            'Post',
-            postId,
-            post
-        );
+        const logDto = new CreateUserActionLogDto();
+        logDto.action = 'Update';
+        logDto.userId = userId;
+        logDto.entityType = 'Post';
+        logDto.entityId = postId;
+        logDto.entity = JSON.stringify(post);
+    
+        await this.loggerService.logActions(logDto);
         return unarchivedPost;
     }
 
@@ -511,13 +523,14 @@ export class PostsService {
         take: limit,
       });
       for (const filteredPost of filteredPosts) {
-        await this.loggerService.logActions(
-            userId,
-            'Viewed',
-            'Post',
-            filteredPost.id,
-            { filters, page, limit, orderBy }
-          );
+        const logDto = new CreateUserActionLogDto();
+        logDto.action = 'Viewed';
+        logDto.userId = userId;
+        logDto.entityType = 'Post';
+        logDto.entityId = filteredPost.id;
+        logDto.entity = JSON.stringify({ filters, page, limit, orderBy });
+    
+        await this.loggerService.logActions(logDto);
       }
       return filteredPosts;
     }
