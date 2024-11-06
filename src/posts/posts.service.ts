@@ -147,7 +147,9 @@ export class PostsService {
         const skip = (page - 1) * limit;
     
         const posts = await this.prisma.post.findMany({
-            where: { published: true },
+            where: { published: true,
+                authorId: userId
+             },
             skip: skip,
             take: limit,
             select: {
