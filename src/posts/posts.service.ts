@@ -4,10 +4,11 @@ import { UserService } from '../user/user.service';
 import { JwtService } from '@nestjs/jwt';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
+import { LoggerService } from 'src/logger/logger.service';
 
 @Injectable()
 export class PostsService {
-    constructor(private prisma: PrismaService, private userService: UserService, private jwtService: JwtService) {}
+    constructor(private prisma: PrismaService, private userService: UserService, private jwtService: JwtService, private loggerService: LoggerService) {}
 
 
     async createPost(userId: number, createPostDto: CreatePostDto) {
@@ -31,6 +32,14 @@ export class PostsService {
             },
         },
         });
+        await this.loggerService.logActions(
+            userId,
+            'Create',
+            'Post',
+            post.id,
+            post
+        );
+
         return post;
     }
 
@@ -55,6 +64,14 @@ export class PostsService {
         await this.prisma.post.delete({
             where: { id: postId },
         });
+
+        await this.loggerService.logActions(
+            userId,
+            'Delete',
+            'Post',
+            post.id,
+            post
+        );
         return { message: 'Post has been deleted successfully!' };
     }
 
@@ -108,7 +125,13 @@ export class PostsService {
     
             return postUpdate;
         });
-    
+        await this.loggerService.logActions(
+            userId,
+            'Update',
+            'Post',
+            post.id,
+            post
+        );
         return updatedPost;
     }
 
@@ -120,7 +143,7 @@ export class PostsService {
     
         const skip = (page - 1) * limit;
     
-        return await this.prisma.post.findMany({
+        const posts = await this.prisma.post.findMany({
             where: { published: true },
             skip: skip,
             take: limit,
@@ -139,6 +162,17 @@ export class PostsService {
                 },
             },
         });
+
+        for (const post of posts) {
+            await this.loggerService.logActions(
+                userId,
+                'Viewed',
+                'Post',
+                post.id,
+                post
+            );
+        };
+        return posts;
     }
 
 
@@ -152,7 +186,7 @@ export class PostsService {
     const isAdmin = user.roleId === 2;
     const authorId = isAdmin && targetUserId ? targetUserId : userId;
 
-    return await this.prisma.post.findMany({
+    const posts = await this.prisma.post.findMany({
         where: {
             authorId: authorId,
             published: false,
@@ -174,6 +208,16 @@ export class PostsService {
             },
         },
     });
+    for (const post of posts) {
+        await this.loggerService.logActions(
+            userId,
+            'Viewed',
+            'Post',
+            post.id,
+            post
+        )
+    }
+    return posts;
 }
  
     
@@ -208,6 +252,15 @@ export class PostsService {
                     likesCount: { decrement: 1 }
                 },
             });
+            
+            await this.loggerService.logActions(
+                userId,
+                'Create',
+                'PostLike',
+                 postId,
+                 {postId, userId}
+        )
+
             return { message: 'Like has been removed successfully!' };
         } else {
             await this.prisma.likes.create({
@@ -223,6 +276,13 @@ export class PostsService {
                     likesCount: { increment: 1 }
                 },
             });
+            await this.loggerService.logActions(
+                userId,
+                'Delete',
+                'PostLike',
+                 postId,
+                 {postId, userId}
+        )
             return { message: 'Like has been added successfully!' };
         }
     }
@@ -255,7 +315,13 @@ export class PostsService {
                 commentsCount: { increment: 1 },
             },
         });
-    
+        await this.loggerService.logActions(
+            userId,
+            'Create',
+            'Comment',
+             comment.id,
+             comment
+    )
         return comment;
     }
     
@@ -299,7 +365,13 @@ export class PostsService {
                 commentsCount: { decrement: 1 },
             },
         });
-    
+        await this.loggerService.logActions(
+            userId,
+            'Delete',
+            'Comment',
+             commentId,
+             existingComment
+    )
         return { message: 'Comment has been deleted successfully!' };
     }
     
@@ -322,8 +394,9 @@ export class PostsService {
             skip: skip,
             take: limit,
             select: {
+                id: true,
                 content: true,
-                commentedAt: true,
+                createdAt: true,
                 user: {
                     select: {
                         name:true,
@@ -332,6 +405,16 @@ export class PostsService {
                 },
             },
         });
+        
+        for (const comment of comments) {
+            await this.loggerService.logActions(
+                userId,
+                'Viewed',
+                'Comment',
+                 comment.id,
+                 comment
+        )
+        }
         return comments;
     }
     async archivePost(userId: number, postId: number) {
@@ -352,10 +435,18 @@ export class PostsService {
             throw new ForbiddenException('You do not have permission to archive this post');
         }
 
-        return await this.prisma.post.update({
+        const archivedPost = await this.prisma.post.update({
             where: { id: postId },
             data: { published: false },
         });
+        await this.loggerService.logActions(
+            userId,
+            'Update',
+            'Post',
+            postId,
+            post
+        );
+        return archivedPost;
     }
 
     async unarchivePost(userId: number, postId: number) {
@@ -376,10 +467,18 @@ export class PostsService {
             throw new ForbiddenException('You do not have permission to unarchive this post');
         }
 
-        return await this.prisma.post.update({
+        const unarchivedPost = await this.prisma.post.update({
             where: { id: postId },
             data: { published: true }, 
         });
+        await this.loggerService.logActions(
+            userId,
+            'Update',
+            'Post',
+            postId,
+            post
+        );
+        return unarchivedPost;
     }
 
     async filterPosts(userId: number, filters: { 
@@ -388,7 +487,7 @@ export class PostsService {
       }, page: number = 1, limit: number = 10, orderBy: 'asc' | 'desc' = 'desc') {
         const skip = (page - 1) * limit;
 
-      return this.prisma.post.findMany({
+      const filteredPosts = await this.prisma.post.findMany({
         where: {
           ...(filters.categoryId && {
             categories: {
@@ -411,5 +510,15 @@ export class PostsService {
         skip: skip,
         take: limit,
       });
+      for (const filteredPost of filteredPosts) {
+        await this.loggerService.logActions(
+            userId,
+            'Viewed',
+            'Post',
+            filteredPost.id,
+            { filters, page, limit, orderBy }
+          );
+      }
+      return filteredPosts;
     }
 }

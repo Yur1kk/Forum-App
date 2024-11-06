@@ -4,6 +4,7 @@ import { PostsController } from './posts.controller';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { JwtModule } from '@nestjs/jwt';
 import { UserService } from '../user/user.service';
+import { LoggerService } from 'src/logger/logger.service';
 
 @Module({
   imports: [
@@ -14,6 +15,6 @@ import { UserService } from '../user/user.service';
     }),
   ],
   controllers: [PostsController],
-  providers: [PostsService, UserService],
+  providers: [PostsService, UserService, LoggerService],
 })
 export class PostsModule {}
