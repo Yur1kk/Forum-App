@@ -1,24 +1,17 @@
 import { Injectable } from "@nestjs/common";
 import { PrismaService } from '../../prisma/prisma.service';
+import { CreateUserActionLogDto } from "./dto/logger.dto";
 
 @Injectable()
 export class LoggerService {
     constructor(private prisma: PrismaService) {}
     
 
-    async logActions (userId: number,
-         action: 'Create' | 'Update' | 'Delete' | 'Viewed',
-          entityType: 'Post' | 'Comment' | 'PostLike',
-          entityId: number,
-          entity: object
+    async logActions (createUserActionLogDto: CreateUserActionLogDto
         ) {
             await this.prisma.userActionLog.create({
                 data: {
-                    action,
-                    userId,
-                    entityType,
-                    entityId,
-                    entity: JSON.stringify(entity),
+                    ...createUserActionLogDto
                 },
             });
     }
