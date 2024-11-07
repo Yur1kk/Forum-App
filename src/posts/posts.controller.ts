@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Request, Delete, Param, Patch, Get, Query, NotFoundException} from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Request, Delete, Param, Patch, Get, Query, BadRequestException} from '@nestjs/common';
 import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { JwtAuthGuard } from '../auth/strategies/jwt-auth.guard';
@@ -34,11 +34,16 @@ export class PostsController {
 
    @UseGuards(JwtAuthGuard)
    @Get()
-   async getAllPosts(@Request() req, @Query('page') page: string = '1', @Query('limit') limit: string = '10') {
-    const userId = req.user.sub;
+   async getAllPosts(@Request() req, @Query('userId') userId: string | undefined, @Query('page') page: string = '1', @Query('limit') limit: string = '10') {
+    const currentUserId = req.user.sub;
     const pageNumber = parseInt(page, 10);
     const limitNumber = parseInt(limit, 10);
-    return this.postsService.getAllPosts(userId, pageNumber, limitNumber);
+
+    const targetUserId = userId ? parseInt(userId, 10) : currentUserId;
+    if (isNaN(targetUserId)) {
+      throw new BadRequestException('Invalid userId');
+    }
+    return this.postsService.getAllPosts(currentUserId, targetUserId, pageNumber, limitNumber);
    }
 
    @UseGuards(JwtAuthGuard)

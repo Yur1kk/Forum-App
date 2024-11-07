@@ -138,8 +138,8 @@ export class PostsService {
         return updatedPost;
     }
 
-    async getAllPosts(userId: number, page: number = 1, limit: number = 10) {
-        const user = await this.userService.findUserById(userId);
+    async getAllPosts(currentUserId: number, targetUserId: number, page: number = 1, limit: number = 10) {
+        const user = await this.userService.findUserById(targetUserId);
         if (!user) {
             throw new NotFoundException('User not found');
         }
@@ -147,7 +147,7 @@ export class PostsService {
         const skip = (page - 1) * limit;
     
         const posts = await this.prisma.post.findMany({
-            where: { published: true },
+            where: { published: true, authorId: targetUserId },
             skip: skip,
             take: limit,
             select: {
@@ -169,7 +169,7 @@ export class PostsService {
         for (const post of posts) {
             const logDto = new CreateUserActionLogDto();
             logDto.action = 'Viewed';
-            logDto.userId = userId;
+            logDto.userId = currentUserId;
             logDto.entityType = 'Post';
             logDto.entityId = post.id;
             logDto.entity = JSON.stringify(post);
