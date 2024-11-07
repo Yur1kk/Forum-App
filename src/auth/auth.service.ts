@@ -121,7 +121,7 @@ async validateUser(accessToken: string): Promise<any> {
 }
 
 createJwtToken(user: any): string {
-  const payload = { email: user.email, sub: user.id };
+  const payload = { email: user.email, sub: user.id, roleId: user.roleId };
   return this.jwtService.sign(payload);
 }
 }
