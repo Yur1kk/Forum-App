@@ -1,10 +1,9 @@
 import { Module } from '@nestjs/common';
-import { PostsService } from './posts.service';
-import { PostsController } from './posts.controller';
+import { StatisticsService } from './statistics.service';
+import { StatisticsController } from './statistics.controller';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { JwtModule } from '@nestjs/jwt';
 import { UserService } from '../user/user.service';
-import { LoggerService } from 'src/logger/logger.service';
 
 @Module({
   imports: [
@@ -14,7 +13,7 @@ import { LoggerService } from 'src/logger/logger.service';
       signOptions: { expiresIn: '1h' },
     }),
   ],
-  controllers: [PostsController],
-  providers: [PostsService, UserService, LoggerService],
+  controllers: [StatisticsController],
+  providers: [StatisticsService, UserService],
 })
-export class PostsModule {}
+export class StatisticsModule {}

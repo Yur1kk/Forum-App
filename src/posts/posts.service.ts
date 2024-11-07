@@ -4,10 +4,12 @@ import { UserService } from '../user/user.service';
 import { JwtService } from '@nestjs/jwt';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
+import { LoggerService } from 'src/logger/logger.service';
+import { CreateUserActionLogDto } from 'src/logger/dto/logger.dto';
 
 @Injectable()
 export class PostsService {
-    constructor(private prisma: PrismaService, private userService: UserService, private jwtService: JwtService) {}
+    constructor(private prisma: PrismaService, private userService: UserService, private jwtService: JwtService, private loggerService: LoggerService) {}
 
 
     async createPost(userId: number, createPostDto: CreatePostDto) {
@@ -31,6 +33,14 @@ export class PostsService {
             },
         },
         });
+        const logDto = new CreateUserActionLogDto();
+        logDto.action = 'Create';
+        logDto.userId = userId;
+        logDto.entityType = 'Post';
+        logDto.entityId = post.id;
+        logDto.entity = JSON.stringify(post);
+    
+        await this.loggerService.logActions(logDto);
         return post;
     }
 
@@ -55,6 +65,15 @@ export class PostsService {
         await this.prisma.post.delete({
             where: { id: postId },
         });
+
+        const logDto = new CreateUserActionLogDto();
+        logDto.action = 'Delete';
+        logDto.userId = userId;
+        logDto.entityType = 'Post';
+        logDto.entityId = post.id;
+        logDto.entity = JSON.stringify(post);
+    
+        await this.loggerService.logActions(logDto);
         return { message: 'Post has been deleted successfully!' };
     }
 
@@ -108,20 +127,27 @@ export class PostsService {
     
             return postUpdate;
         });
+        const logDto = new CreateUserActionLogDto();
+        logDto.action = 'Update';
+        logDto.userId = userId;
+        logDto.entityType = 'Post';
+        logDto.entityId = post.id;
+        logDto.entity = JSON.stringify(post);
     
+        await this.loggerService.logActions(logDto);
         return updatedPost;
     }
 
-    async getAllPosts(userId: number, page: number = 1, limit: number = 10) {
-        const user = await this.userService.findUserById(userId);
+    async getAllPosts(currentUserId: number, targetUserId: number, page: number = 1, limit: number = 10) {
+        const user = await this.userService.findUserById(targetUserId);
         if (!user) {
             throw new NotFoundException('User not found');
         }
     
         const skip = (page - 1) * limit;
     
-        return await this.prisma.post.findMany({
-            where: { published: true },
+        const posts = await this.prisma.post.findMany({
+            where: { published: true, authorId: targetUserId },
             skip: skip,
             take: limit,
             select: {
@@ -139,6 +165,18 @@ export class PostsService {
                 },
             },
         });
+
+        for (const post of posts) {
+            const logDto = new CreateUserActionLogDto();
+            logDto.action = 'Viewed';
+            logDto.userId = currentUserId;
+            logDto.entityType = 'Post';
+            logDto.entityId = post.id;
+            logDto.entity = JSON.stringify(post);
+        
+            await this.loggerService.logActions(logDto);
+        };
+        return posts;
     }
 
 
@@ -152,7 +190,7 @@ export class PostsService {
     const isAdmin = user.roleId === 2;
     const authorId = isAdmin && targetUserId ? targetUserId : userId;
 
-    return await this.prisma.post.findMany({
+    const posts = await this.prisma.post.findMany({
         where: {
             authorId: authorId,
             published: false,
@@ -174,6 +212,17 @@ export class PostsService {
             },
         },
     });
+    for (const post of posts) {
+        const logDto = new CreateUserActionLogDto();
+        logDto.action = 'Viewed';
+        logDto.userId = userId;
+        logDto.entityType = 'Post';
+        logDto.entityId = post.id;
+        logDto.entity = JSON.stringify(post);
+    
+        await this.loggerService.logActions(logDto);
+    }
+    return posts;
 }
  
     
@@ -208,6 +257,16 @@ export class PostsService {
                     likesCount: { decrement: 1 }
                 },
             });
+            
+            const logDto = new CreateUserActionLogDto();
+            logDto.action = 'Create';
+            logDto.userId = userId;
+            logDto.entityType = 'Post';
+            logDto.entityId = postId;
+            logDto.entity = JSON.stringify({postId, userId});
+        
+            await this.loggerService.logActions(logDto);
+
             return { message: 'Like has been removed successfully!' };
         } else {
             await this.prisma.likes.create({
@@ -223,6 +282,14 @@ export class PostsService {
                     likesCount: { increment: 1 }
                 },
             });
+            const logDto = new CreateUserActionLogDto();
+            logDto.action = 'Delete';
+            logDto.userId = userId;
+            logDto.entityType = 'Post';
+            logDto.entityId = postId;
+            logDto.entity = JSON.stringify({postId, userId});
+        
+            await this.loggerService.logActions(logDto);
             return { message: 'Like has been added successfully!' };
         }
     }
@@ -255,7 +322,14 @@ export class PostsService {
                 commentsCount: { increment: 1 },
             },
         });
+        const logDto = new CreateUserActionLogDto();
+        logDto.action = 'Create';
+        logDto.userId = userId;
+        logDto.entityType = 'Post';
+        logDto.entityId = comment.id;
+        logDto.entity = JSON.stringify(comment);
     
+        await this.loggerService.logActions(logDto);
         return comment;
     }
     
@@ -299,7 +373,14 @@ export class PostsService {
                 commentsCount: { decrement: 1 },
             },
         });
+        const logDto = new CreateUserActionLogDto();
+        logDto.action = 'Delete';
+        logDto.userId = userId;
+        logDto.entityType = 'Comment';
+        logDto.entityId = commentId;
+        logDto.entity = JSON.stringify(existingComment);
     
+        await this.loggerService.logActions(logDto);
         return { message: 'Comment has been deleted successfully!' };
     }
     
@@ -322,8 +403,9 @@ export class PostsService {
             skip: skip,
             take: limit,
             select: {
+                id: true,
                 content: true,
-                commentedAt: true,
+                createdAt: true,
                 user: {
                     select: {
                         name:true,
@@ -332,6 +414,17 @@ export class PostsService {
                 },
             },
         });
+        
+        for (const comment of comments) {
+            const logDto = new CreateUserActionLogDto();
+            logDto.action = 'Viewed';
+            logDto.userId = userId;
+            logDto.entityType = 'Comment';
+            logDto.entityId = comment.id;
+            logDto.entity = JSON.stringify(comment);
+        
+            await this.loggerService.logActions(logDto);
+        }
         return comments;
     }
     async archivePost(userId: number, postId: number) {
@@ -352,10 +445,19 @@ export class PostsService {
             throw new ForbiddenException('You do not have permission to archive this post');
         }
 
-        return await this.prisma.post.update({
+        const archivedPost = await this.prisma.post.update({
             where: { id: postId },
             data: { published: false },
         });
+        const logDto = new CreateUserActionLogDto();
+        logDto.action = 'Update';
+        logDto.userId = userId;
+        logDto.entityType = 'Post';
+        logDto.entityId = postId;
+        logDto.entity = JSON.stringify(post);
+    
+        await this.loggerService.logActions(logDto);
+        return archivedPost;
     }
 
     async unarchivePost(userId: number, postId: number) {
@@ -376,10 +478,19 @@ export class PostsService {
             throw new ForbiddenException('You do not have permission to unarchive this post');
         }
 
-        return await this.prisma.post.update({
+        const unarchivedPost = await this.prisma.post.update({
             where: { id: postId },
             data: { published: true }, 
         });
+        const logDto = new CreateUserActionLogDto();
+        logDto.action = 'Update';
+        logDto.userId = userId;
+        logDto.entityType = 'Post';
+        logDto.entityId = postId;
+        logDto.entity = JSON.stringify(post);
+    
+        await this.loggerService.logActions(logDto);
+        return unarchivedPost;
     }
 
     async filterPosts(userId: number, filters: { 
@@ -388,7 +499,7 @@ export class PostsService {
       }, page: number = 1, limit: number = 10, orderBy: 'asc' | 'desc' = 'desc') {
         const skip = (page - 1) * limit;
 
-      return this.prisma.post.findMany({
+      const filteredPosts = await this.prisma.post.findMany({
         where: {
           ...(filters.categoryId && {
             categories: {
@@ -411,5 +522,16 @@ export class PostsService {
         skip: skip,
         take: limit,
       });
+      for (const filteredPost of filteredPosts) {
+        const logDto = new CreateUserActionLogDto();
+        logDto.action = 'Viewed';
+        logDto.userId = userId;
+        logDto.entityType = 'Post';
+        logDto.entityId = filteredPost.id;
+        logDto.entity = JSON.stringify({ filters, page, limit, orderBy });
+    
+        await this.loggerService.logActions(logDto);
+      }
+      return filteredPosts;
     }
 }
