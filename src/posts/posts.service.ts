@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UserService } from '../user/user.service';
 import { JwtService } from '@nestjs/jwt';
@@ -7,7 +7,6 @@ import { UpdatePostDto } from './dto/update-post.dto';
 import { LoggerService } from 'src/logger/logger.service';
 import { CreateUserActionLogDto } from 'src/logger/dto/logger.dto';
 import * as FormData from 'form-data';
-import * as axios from 'axios';
 
 @Injectable()
 export class PostsService {
@@ -140,138 +139,6 @@ export class PostsService {
         return updatedPost;
       }
     
-      async addPostImage(postId: number, file: Express.Multer.File, userId: number) {
-        const user = await this.userService.findUserById(userId);
-
-        const post = await this.prisma.post.findUnique({
-          where: { id: postId },
-        });
-
-        const isAdmin = user.roleId === 2;
-        
-        if (post.authorId !== userId && !isAdmin) {
-            throw new ForbiddenException('You do not have permission to add the image of this post');
-          }
-
-        if (!post) {
-          throw new NotFoundException('Post not found');
-        }
-
-        if(post.image) {
-            throw new BadRequestException('Post image already exists!');
-        }
-
-        const imageUrl = await this.uploadImageToImgur(file);
-        await this.prisma.post.update({
-          where: { id: postId },
-          data: { image: imageUrl },
-        });
-
-        const logDto = new CreateUserActionLogDto();
-        logDto.action = 'Create';
-        logDto.userId = userId;
-        logDto.entityType = 'Post';
-        logDto.entityId = post.id;
-        logDto.entity = JSON.stringify(post);
-    
-        await this.loggerService.logActions(logDto);
-        return {message: 'Post image has been added succesfully!'};
-      }
-    
-      async updatePostImage(postId: number, file: Express.Multer.File, userId: number) {
-        const user = await this.userService.findUserById(userId);
-
-        const post = await this.prisma.post.findUnique({
-          where: { id: postId },
-        });
-
-        const isAdmin = user.roleId === 2;
-
-        if (post.authorId !== userId && !isAdmin) {
-            throw new ForbiddenException('You do not have permission to update the image of this post');
-          }
-
-        if (!post) {
-          throw new NotFoundException('Post not found');
-        }
-
-    
-        const imageUrl = await this.uploadImageToImgur(file);
-        await this.prisma.post.update({
-          where: { id: postId },
-          data: { image: imageUrl },
-        });
-        const logDto = new CreateUserActionLogDto();
-        logDto.action = 'Update';
-        logDto.userId = userId;
-        logDto.entityType = 'Post';
-        logDto.entityId = post.id;
-        logDto.entity = JSON.stringify(post);
-    
-        await this.loggerService.logActions(logDto);
-        return {message: 'Post image has been updated succesfully!'};
-      }
-
-      async deletePostImage(postId: number, userId: number) {
-        const user = await this.userService.findUserById(userId);
-
-        const post = await this.prisma.post.findUnique({
-          where: { id: postId },
-        });
-
-        const isAdmin = user.roleId === 2;
-
-        if (post.authorId !== userId && !isAdmin) {
-            throw new ForbiddenException('You do not have permission to delete the image of this post');
-          }
-
-        if (!post) {
-          throw new NotFoundException('Post not found');
-        }
-
-        if(post.image === null) {
-            throw new BadRequestException('There is no image to delete!');
-        }
-
-        await this.prisma.post.update({
-            where: {id: postId},
-            data: {
-                image: null
-            }
-        });
-        const logDto = new CreateUserActionLogDto();
-        logDto.action = 'Delete';
-        logDto.userId = userId;
-        logDto.entityType = 'Post';
-        logDto.entityId = post.id;
-        logDto.entity = JSON.stringify(post);
-    
-        await this.loggerService.logActions(logDto);
-        return {message: 'Post image has been deleted succesfully!'};
-      }
-    
-      private async uploadImageToImgur(file: Express.Multer.File): Promise<string> {
-        if (!file || !file.buffer) {
-          throw new Error('No file buffer found');
-        }
-    
-        const formData = new FormData();
-        formData.append('image', file.buffer, file.originalname);
-    
-        const response = await axios.default.post(process.env.IMGUR_URL, formData, {
-          headers: {
-            Authorization: `Client-ID ${process.env.IMGUR_CLIENT_ID}`,
-            ...formData.getHeaders(),
-          },
-        });
-    
-        if (response.data?.data?.link) {
-          return response.data.data.link;
-        } else {
-          throw new Error('Failed to upload image to Imgur');
-        }
-      }
-
     async getAllPosts(currentUserId: number, targetUserId: number, page: number = 1, limit: number = 10) {
         const user = await this.userService.findUserById(targetUserId);
         if (!user) {

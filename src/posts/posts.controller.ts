@@ -1,14 +1,13 @@
-import { Controller, Post, Body, UseGuards, Request, Delete, Param, Patch, Get, Query, BadRequestException, UploadedFile, UseInterceptors, ParseIntPipe, Req} from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Request, Delete, Param, Patch, Get, Query, BadRequestException} from '@nestjs/common';
 import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { JwtAuthGuard } from '../auth/strategies/jwt-auth.guard';
 import { UpdatePostDto } from './dto/update-post.dto';
-import { UserService } from 'src/user/user.service';
-import { FileInterceptor } from '@nestjs/platform-express';
+
 
 @Controller('posts')
 export class PostsController {
-   constructor(private postsService: PostsService, private userService: UserService) {}
+   constructor(private postsService: PostsService) {}
 
    @UseGuards(JwtAuthGuard)
    @Post('create-post')
@@ -33,37 +32,6 @@ export class PostsController {
     return this.postsService.updatePost(userId, postIdInt, updatePostDto);
    }
 
-  @UseGuards(JwtAuthGuard)
-  @Post(':postId/add-image')
-  @UseInterceptors(FileInterceptor('postImage'))
-  async addPostImage(
-    @Param('postId', ParseIntPipe) postId: number,
-    @UploadedFile() file: Express.Multer.File,
-    @Req() req
-  ) {
-    const userId = req.user.sub;
-    return this.postsService.addPostImage(postId, file, userId);
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @Patch(':postId/update-image')
-  @UseInterceptors(FileInterceptor('postImage'))
-  async updatePostImage(
-    @Param('postId', ParseIntPipe) postId: number,
-    @UploadedFile() file: Express.Multer.File,
-    @Req() req
-  ) {
-    const userId = req.user.sub;
-    return this.postsService.updatePostImage(postId, file, userId);
-  }
-
-  @UseGuards(JwtAuthGuard)
-   @Delete(':postId/delete-image')
-   async deletePostImage(@Param('postId') postId: string, @Request() req) {
-    const userId = req.user.sub;
-    const postIdInt = parseInt(postId, 10);
-    return this.postsService.deletePostImage(postIdInt, userId);
-}
 
 
    @UseGuards(JwtAuthGuard)
