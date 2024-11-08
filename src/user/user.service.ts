@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException, BadRequestException} from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { RegisterDto } from '../auth/dto/register.dto'; 
-import { ProfilePhotoDto } from './dto/profile-photo.dto';
+import * as axios from 'axios';
+import * as FormData from 'form-data';
 
 @Injectable()
 export class UserService {
@@ -18,8 +19,7 @@ export class UserService {
         role: { connect: { id: 1 } } 
       },
     });
-}
-
+  }
 
   async findUserByEmail(email: string) {
     return this.prisma.user.findUnique({ where: { email } });
@@ -33,76 +33,109 @@ export class UserService {
     const hashedPassword = await bcrypt.hash(newPassword, 10);
     await this.prisma.user.update({
       where: { email },
-      data: { password: hashedPassword, resetToken: null }, 
+      data: { password: hashedPassword, resetToken: null },
     });
   }
 
   async saveResetToken(userId: number, token: string) {
     await this.prisma.user.update({
       where: { id: userId },
-      data: { resetToken: token }, 
+      data: { resetToken: token },
     });
   }
 
   async findUserByResetToken(token: string) {
     const users = await this.prisma.user.findMany(); 
-    return users.find(user => user.resetToken === token); 
+    return users.find(user => user.resetToken === token);
   }
-  
 
   async clearResetToken(userId: number) {
     await this.prisma.user.update({
       where: { id: userId },
-      data: { resetToken: null }, 
+      data: { resetToken: null },
     });
   }
 
-  async addUserPhoto(userId: number, profilePhotoDto: ProfilePhotoDto) {
+  async addUserPhoto(userId: number, file: Express.Multer.File) {
     const user = await this.findUserById(userId);
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    const profilePhoto = user.profilePhoto
-    if (profilePhoto) {
-      throw new BadRequestException('Profile photo exists already');
+
+    const existingPhoto = user.profilePhoto;
+    if (existingPhoto) {
+      throw new BadRequestException('Profile photo already exists');
     }
+
+    const uploadedImageUrl = await this.uploadImageToImgur(file);
+
     await this.prisma.user.update({
-      where: {id: userId},
+      where: { id: userId },
       data: {
-        profilePhoto: profilePhotoDto.profilePhoto,
+        profilePhoto: uploadedImageUrl,
       },
     });
-    return {message: 'Profile photo has been added succesfully!'};
+
+    return { message: 'Profile photo has been added successfully!' };
   }
+
+  private async uploadImageToImgur(file: Express.Multer.File): Promise<string> {
+    if (!file || !file.buffer) {
+      throw new Error('No file buffer found');
+    }
+
+    console.log('Uploading file:', file.originalname); 
+
+    const formData = new FormData();
+    formData.append('image', file.buffer, file.originalname);
+
+    const response = await axios.default.post(process.env.IMGUR_URL, formData, {
+      headers: {
+        Authorization: `Client-ID ${process.env.IMGUR_CLIENT_ID}`,
+        ...formData.getHeaders(),
+      },
+    });
+
+    if (response.data?.data?.link) {
+      return response.data.data.link;
+    } else {
+      throw new Error('Failed to upload image to Imgur');
+    }
+  }
+
   async deleteUserPhoto(userId: number) {
     const user = await this.findUserById(userId);
     if (!user) {
       throw new NotFoundException('User not found');
     }
     if (!user.profilePhoto) {
-      throw new NotFoundException('User does not have a profile photo');
+      throw new BadRequestException('User does not have a profile photo');
+    }
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { profilePhoto: null },
+    });
+
+    return { message: 'Profile photo has been deleted successfully!' };
   }
 
-   await this.prisma.user.update({
-    where: {id: userId},
-    data: {profilePhoto: null},
-   });
-   return {message: 'Profile photo has been deleted succesfully!'};
-  }
-
-  async updateUserPhoto(userId: number, profilePhotoDto: ProfilePhotoDto) {
+  async updateUserPhoto(userId: number, file: Express.Multer.File) {
     const user = await this.findUserById(userId);
     if (!user) {
       throw new NotFoundException('User not found');
     }
     if (!user.profilePhoto) {
-      throw new NotFoundException('User does not have a profile photo');
-  }
-   const profilePhoto = user.profilePhoto;
-   await this.prisma.user.update({
-    where: {id: userId},
-    data: {profilePhoto: profilePhotoDto.profilePhoto ?? profilePhoto},
-   });
-   return {message: 'Profile photo has been updated succesfully!'};
+      throw new BadRequestException('User does not have a profile photo');
+    }
+
+    const uploadedImageUrl = await this.uploadImageToImgur(file);
+
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { profilePhoto: uploadedImageUrl },
+    });
+
+    return { message: 'Profile photo has been updated successfully!' };
   }
 }
