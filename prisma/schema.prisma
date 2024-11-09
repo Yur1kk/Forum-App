@@ -26,6 +26,7 @@ model User {
   role    User_Role @relation(fields: [roleId], references: [id])
   name    String?  @db.VarChar(255)
   profilePhoto String? @db.VarChar(255)
+  deleteHash String?
   email   String   @unique @db.VarChar(255)
   resetToken    String?
   password String  @db.VarChar(255)
@@ -41,6 +42,7 @@ model Post {
   title   String
   content String?
   image    String?   @db.VarChar(255)
+  deleteHash String?
   published Boolean @default(false)
   likesCount Int @default(0)
   commentsCount Int @default(0)
