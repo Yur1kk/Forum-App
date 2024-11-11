@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UserService } from '../user/user.service';
 import { JwtService } from '@nestjs/jwt';
@@ -89,6 +89,63 @@ export class PostsService {
     return post;
       }
 
+      async getPost(userId: number, postId: number) {
+        const user = await this.userService.findUserById(userId);
+        if (!user) throw new NotFoundException('User not found');
+    
+        const post = await this.prisma.post.findUnique({
+            where: { id: postId },
+            include: {
+                comments: true,
+            }
+        });
+    
+        if (!post) throw new NotFoundException('Post not found');
+    
+        const isAdmin = user.roleId === 2;
+        const isAuthor = post.authorId === userId;
+        const isArchived = !post.published;
+    
+        if (isArchived && !isAuthor && !isAdmin) {
+            throw new ForbiddenException('You do not have permission to view this post');
+        }
+    
+        
+        if ((isAdmin || !isAuthor) && !isArchived) {
+            const existingView = await this.prisma.view.findFirst({
+                where: {
+                    postId,
+                    userId,
+                }
+            });
+    
+           
+            if (!existingView) {
+                await this.prisma.view.create({
+                    data: {
+                        postId,
+                        userId,
+                    }
+                });
+            }
+        }
+    
+        const viewCount = await this.prisma.view.count({
+            where: { postId }
+        });
+    
+        await this.loggerService.logAction('Viewed', userId, 'Post', postId, post);
+    
+        return {
+            ...post,
+            likeCount: post.likesCount,
+            viewCount, 
+            commentCount: post.commentsCount,
+        };
+    }
+    
+    
+    
     async deletePost(userId: number, postId: number) {
         const user = await this.userService.findUserById(userId);
     if (!user) throw new NotFoundException('User not found');
