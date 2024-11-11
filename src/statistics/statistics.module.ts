@@ -4,9 +4,11 @@ import { StatisticsController } from './statistics.controller';
 import { PrismaModule } from '../../prisma/prisma.module';
 import { JwtModule } from '@nestjs/jwt';
 import { UserService } from '../user/user.service';
+import { PostsService } from 'src/posts/posts.service';
+import { LogerModule } from 'src/logger/logger.module';
 
 @Module({
-  imports: [
+  imports: [LogerModule,
     PrismaModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET,
@@ -14,6 +16,6 @@ import { UserService } from '../user/user.service';
     }),
   ],
   controllers: [StatisticsController],
-  providers: [StatisticsService, UserService],
+  providers: [StatisticsService, UserService, PostsService],
 })
 export class StatisticsModule {}

@@ -15,5 +15,15 @@ export class LoggerService {
                 },
             });
     }
-
+    
+    async logAction(action: string, userId: number, entityType: string, entityId: number, entity: any) {
+        const logDto = new CreateUserActionLogDto();
+        logDto.action = action;
+        logDto.userId = userId;
+        logDto.entityType = entityType;
+        logDto.entityId = entityId;
+        logDto.entity = JSON.stringify(entity);
+    
+        await this.logActions(logDto);
+}
 }

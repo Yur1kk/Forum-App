@@ -16,5 +16,6 @@ import { LoggerService } from 'src/logger/logger.service';
   ],
   controllers: [PostsController],
   providers: [PostsService, UserService, LoggerService],
+  exports: [PostsService]
 })
 export class PostsModule {}

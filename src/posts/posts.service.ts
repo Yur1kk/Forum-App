@@ -5,183 +5,138 @@ import { JwtService } from '@nestjs/jwt';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { LoggerService } from 'src/logger/logger.service';
-import { CreateUserActionLogDto } from 'src/logger/dto/logger.dto';
 
 @Injectable()
 export class PostsService {
     constructor(private prisma: PrismaService, private userService: UserService, private jwtService: JwtService, private loggerService: LoggerService) {}
 
+    private async createPostEntry(userId: number, createPostDto: CreatePostDto) {
+        return this.prisma.post.create({
+            data: {
+              title: createPostDto.title,
+              content: createPostDto.content,
+              published: true,
+              authorId: userId,
+              categories: {
+                create: createPostDto.categoryIds.map((categoryId) => ({
+                  categoryId,
+                  assignedBy: 'User',
+                })),
+              },
+            },
+          });
+    }
+
+    private async updatePostEntry(postId: number, updatePostDto: UpdatePostDto, userName: string) {
+        return this.prisma.$transaction(async (prisma) => {
+          const updatedPost = await prisma.post.update({
+            where: { id: postId },
+            data: {
+              title: updatePostDto.title ?? undefined,
+              content: updatePostDto.content ?? undefined,
+              published: updatePostDto.published ?? undefined,
+            },
+          });
+    
+          if (updatePostDto.categoryIds) {
+            await prisma.postCategories.deleteMany({ where: { postId } });
+            await prisma.postCategories.createMany({
+              data: updatePostDto.categoryIds.map((categoryId) => ({
+                postId,
+                categoryId,
+                assignedBy: userName,
+              })),
+            });
+          }
+    
+          return updatedPost;
+        });
+      }
+    
+      private async deletePostEntry(postId: number) {
+        return this.prisma.post.delete({ where: { id: postId } });
+      }
+
+      private async findPostsWithFilters(filters, page, limit, orderBy, includeAuthor = true) {
+        const skip = (page - 1) * limit;
+        return this.prisma.post.findMany({
+            where: filters,
+            orderBy: [
+                { updatedAt: orderBy },
+                { createdAt: orderBy },
+            ],
+            skip,
+            take: limit,
+            include: includeAuthor ? { author: { select: { name: true, profilePhoto: true } } } : undefined,
+        });
+    }
+
+    private async updateArchivedStatus(postId: number, isPublished: boolean) {
+        await this.prisma.post.update({
+            where: { id: postId },
+            data: {
+                published: isPublished
+            }
+        });
+    }
 
     async createPost(userId: number, createPostDto: CreatePostDto) {
         const user = await this.userService.findUserById(userId);
-        if (!user) {
-            throw new NotFoundException('User not found');
-        }
+    if (!user) throw new NotFoundException('User not found');
 
-        const post = await this.prisma.post.create({
-            data: {
-                title: createPostDto.title,
-                content: createPostDto.content,
-                image: createPostDto.image,
-                published: true,
-                authorId: userId,
-                categories: {
-                    create: createPostDto.categoryIds.map((categoryId) => ({
-                        categoryId: categoryId,
-                        assignedBy: user.name
-                    })),
-            },
-        },
-        });
-        const logDto = new CreateUserActionLogDto();
-        logDto.action = 'Create';
-        logDto.userId = userId;
-        logDto.entityType = 'Post';
-        logDto.entityId = post.id;
-        logDto.entity = JSON.stringify(post);
-    
-        await this.loggerService.logActions(logDto);
-        return post;
-    }
+    const post = await this.createPostEntry(userId, createPostDto);
+    await this.loggerService.logAction('Create', userId, 'Post', post.id, post);
+    return post;
+      }
 
     async deletePost(userId: number, postId: number) {
         const user = await this.userService.findUserById(userId);
-        if (!user) {
-            throw new NotFoundException('User not found');
-        }
+    if (!user) throw new NotFoundException('User not found');
 
-        const post = await this.prisma.post.findUnique({
-            where: { id: postId },
-        });
+    const post = await this.findPostById(postId);
+    if (post.authorId !== userId && user.roleId !== 2) throw new ForbiddenException('You do not have permission to delete this post');
 
-        if (post.authorId !== userId && user.roleId !== 2) {
-            throw new ForbiddenException('You do not have permission to delete this post');
-        }
-
-        if (!post) {
-            throw new NotFoundException('Post not found');
-        }
-
-        await this.prisma.post.delete({
-            where: { id: postId },
-        });
-
-        const logDto = new CreateUserActionLogDto();
-        logDto.action = 'Delete';
-        logDto.userId = userId;
-        logDto.entityType = 'Post';
-        logDto.entityId = post.id;
-        logDto.entity = JSON.stringify(post);
-    
-        await this.loggerService.logActions(logDto);
-        return { message: 'Post has been deleted successfully!' };
+    await this.deletePostEntry(postId);
+    await this.loggerService.logAction('Delete', userId, 'Post', postId, post);
+    return { message: 'Post has been deleted successfully!' };
     }
 
     async updatePost(userId: number, postId: number, updatePostDto: UpdatePostDto) {
         const user = await this.userService.findUserById(userId);
-        if (!user) {
-            throw new NotFoundException('User not found');
-        }
+        if (!user) throw new NotFoundException('User not found');
     
-        const post = await this.prisma.post.findUnique({
-            where: { id: postId },
-        });
+        const post = await this.findPostById(postId);
+        if (post.authorId !== userId && user.roleId !== 2) throw new ForbiddenException('You do not have permission to update this post');
     
-        if (!post) {
-            throw new NotFoundException('Post not found');
-        }
-    
-        if (post.authorId !== userId && user.roleId !== 2) {
-            throw new ForbiddenException('You do not have permission to update this post');
-        }
-    
-        const updatedPost = await this.prisma.$transaction(async (prisma) => {
-            const postUpdate = await prisma.post.update({
-                where: { id: postId },
-                data: {
-                    title: updatePostDto.title ?? post.title,
-                    content: updatePostDto.content ?? post.content,
-                    image: updatePostDto.image ?? post.image,
-                    published: updatePostDto.published ?? post.published,
-                },
-                include: {
-                    categories: true,
-                },
-            });
-    
-            if (updatePostDto.categoryIds) {
-                await prisma.postCategories.deleteMany({
-                    where: { postId: postId },
-                });
-    
-                const categoryData = updatePostDto.categoryIds.map((categoryId) => ({
-                    postId: postId,
-                    categoryId: categoryId,
-                    assignedBy: user.name || 'unknown', 
-                }));
-    
-                await prisma.postCategories.createMany({
-                    data: categoryData,
-                });
-            }
-    
-            return postUpdate;
-        });
-        const logDto = new CreateUserActionLogDto();
-        logDto.action = 'Update';
-        logDto.userId = userId;
-        logDto.entityType = 'Post';
-        logDto.entityId = post.id;
-        logDto.entity = JSON.stringify(post);
-    
-        await this.loggerService.logActions(logDto);
+        const updatedPost = await this.updatePostEntry(postId, updatePostDto, user.name);
+        await this.loggerService.logAction('Update', userId, 'Post', postId, updatedPost);
         return updatedPost;
-    }
-
-    async getAllPosts(currentUserId: number, targetUserId: number, page: number = 1, limit: number = 10) {
-        const user = await this.userService.findUserById(targetUserId);
-        if (!user) {
-            throw new NotFoundException('User not found');
-        }
+      }
     
-        const skip = (page - 1) * limit;
-    
-        const posts = await this.prisma.post.findMany({
-            where: { published: true, authorId: targetUserId },
-            skip: skip,
-            take: limit,
-            select: {
-                id: true,
-                title: true,
-                content: true,
-                image: true,
-                likesCount: true,
-                commentsCount: true,
-                author: {
-                    select: {
-                        name: true,
-                        profilePhoto: true,
-                    },
-                },
-            },
-        });
-
-        for (const post of posts) {
-            const logDto = new CreateUserActionLogDto();
-            logDto.action = 'Viewed';
-            logDto.userId = currentUserId;
-            logDto.entityType = 'Post';
-            logDto.entityId = post.id;
-            logDto.entity = JSON.stringify(post);
-        
-            await this.loggerService.logActions(logDto);
-        };
-        return posts;
-    }
+      async getAllPosts(
+        currentUserId: number, 
+        targetUserId: number, 
+        page: number = 1, 
+        limit: number = 10
+      ) {
+          const filters: any = { published: true };
+      
+          if (targetUserId) {
+              filters.authorId = targetUserId;
+          }
+      
+          const posts = await this.findPostsWithFilters(filters, page, limit, 'desc');
+      
+          for (const post of posts) {
+              await this.loggerService.logAction('Viewed', currentUserId, 'Post', post.id, post);
+          }
+      
+          return posts;
+      }
+      
 
 
    async getArchivedPostsByUser(userId: number, targetUserId?: number, page: number = 1, limit: number = 10) {
-    const skip = (page - 1) * limit;
     const user = await this.userService.findUserById(userId);
     if (!user) {
         throw new NotFoundException('User not found');
@@ -190,252 +145,25 @@ export class PostsService {
     const isAdmin = user.roleId === 2;
     const authorId = isAdmin && targetUserId ? targetUserId : userId;
 
-    const posts = await this.prisma.post.findMany({
-        where: {
-            authorId: authorId,
-            published: false,
-        },
-        skip: skip,
-        take: limit,
-        select: {
-            id: true,
-            title: true,
-            content: true,
-            image: true,
-            likesCount: true,
-            commentsCount: true,
-            author: {
-                select: {
-                    name: true,
-                    profilePhoto: true,
-                },
-            },
-        },
-    });
+    const posts = await this.findPostsWithFilters(
+        { authorId, published: false },
+        page,
+        limit,
+        'desc'
+    );
     for (const post of posts) {
-        const logDto = new CreateUserActionLogDto();
-        logDto.action = 'Viewed';
-        logDto.userId = userId;
-        logDto.entityType = 'Post';
-        logDto.entityId = post.id;
-        logDto.entity = JSON.stringify(post);
-    
-        await this.loggerService.logActions(logDto);
+        await this.loggerService.logAction('Viewed', userId, 'Post', post.id, post);
     }
     return posts;
 }
- 
-    
-    async toggleLikePost(userId: number, postId: number) {
-        const user = await this.userService.findUserById(userId);
-        if (!user) {
-            throw new NotFoundException('User not found');
-        }
-    
-        const existingLike = await this.prisma.likes.findUnique({
-            where: {
-                postId_userId: {
-                    postId: postId,
-                    userId: userId,
-                },
-            },
-        });
-    
-        if (existingLike) {
-            await this.prisma.likes.delete({
-                where: {
-                    postId_userId: {
-                        postId: postId,
-                        userId: userId,
-                    },
-                },
-            });
-    
-            await this.prisma.post.update({
-                where: { id: postId },
-                data: {
-                    likesCount: { decrement: 1 }
-                },
-            });
-            
-            const logDto = new CreateUserActionLogDto();
-            logDto.action = 'Create';
-            logDto.userId = userId;
-            logDto.entityType = 'Post';
-            logDto.entityId = postId;
-            logDto.entity = JSON.stringify({postId, userId});
-        
-            await this.loggerService.logActions(logDto);
 
-            return { message: 'Like has been removed successfully!' };
-        } else {
-            await this.prisma.likes.create({
-                data: {
-                    postId: postId,
-                    userId: userId,
-                },
-            });
-    
-            await this.prisma.post.update({
-                where: { id: postId },
-                data: {
-                    likesCount: { increment: 1 }
-                },
-            });
-            const logDto = new CreateUserActionLogDto();
-            logDto.action = 'Delete';
-            logDto.userId = userId;
-            logDto.entityType = 'Post';
-            logDto.entityId = postId;
-            logDto.entity = JSON.stringify({postId, userId});
-        
-            await this.loggerService.logActions(logDto);
-            return { message: 'Like has been added successfully!' };
-        }
-    }
-    
-    async commentPost(userId: number, postId: number, content: string) {
-        const user = await this.userService.findUserById(userId);
-        if (!user) {
-            throw new NotFoundException('User not found');
-        }
-    
-        const post = await this.prisma.post.findUnique({
-            where: { id: postId }
-        });
-    
-        if (!post) {
-            throw new NotFoundException('Post not found');
-        }
-    
-        const comment = await this.prisma.comments.create({
-            data: {
-                postId: postId,
-                userId: userId,
-                content: content,
-            },
-        });
-    
-        await this.prisma.post.update({
-            where: { id: postId },
-            data: {
-                commentsCount: { increment: 1 },
-            },
-        });
-        const logDto = new CreateUserActionLogDto();
-        logDto.action = 'Create';
-        logDto.userId = userId;
-        logDto.entityType = 'Post';
-        logDto.entityId = comment.id;
-        logDto.entity = JSON.stringify(comment);
-    
-        await this.loggerService.logActions(logDto);
-        return comment;
-    }
-    
-    async deleteComment(userId: number, postId: number, commentId: number) {
-        const user = await this.userService.findUserById(userId);
-        if (!user) {
-            throw new NotFoundException('User not found');
-        }
-    
-        const existingComment = await this.prisma.comments.findUnique({
-            where: { id: commentId },
-        });
-    
-        if (!existingComment) {
-            throw new NotFoundException('Comment not found');
-        }
-    
-        if (existingComment.postId !== postId) {
-            throw new ForbiddenException('Comment does not belong to the specified post');
-        }
-    
-        const post = await this.prisma.post.findUnique({
-            where: { id: existingComment.postId }
-        });
-    
-        if (!post) {
-            throw new NotFoundException('Post not found');
-        }
-    
-        if (existingComment.userId !== userId && post.authorId !== userId && user.roleId !== 2) {
-            throw new ForbiddenException('You do not have permission to delete this comment');
-        }
-    
-        await this.prisma.comments.delete({
-            where: { id: commentId }
-        });
-    
-        await this.prisma.post.update({
-            where: { id: existingComment.postId },
-            data: {
-                commentsCount: { decrement: 1 },
-            },
-        });
-        const logDto = new CreateUserActionLogDto();
-        logDto.action = 'Delete';
-        logDto.userId = userId;
-        logDto.entityType = 'Comment';
-        logDto.entityId = commentId;
-        logDto.entity = JSON.stringify(existingComment);
-    
-        await this.loggerService.logActions(logDto);
-        return { message: 'Comment has been deleted successfully!' };
-    }
-    
-
-    async getAllComments(userId: number, postId: number, page: number = 1, limit: number = 10) {
-        const skip = (page - 1) * limit;
-        const user = await this.userService.findUserById(userId);
-        if (!user) {
-            throw new NotFoundException('User not found');
-        }
-        const post = await this.prisma.post.findUnique({
-            where: { id: postId },
-        });
-
-        if (!post) {
-            throw new NotFoundException('Post not found');
-        }
-        const comments =  await this.prisma.comments.findMany({
-            where: {postId: postId},
-            skip: skip,
-            take: limit,
-            select: {
-                id: true,
-                content: true,
-                createdAt: true,
-                user: {
-                    select: {
-                        name:true,
-                        profilePhoto:true
-                    },
-                },
-            },
-        });
-        
-        for (const comment of comments) {
-            const logDto = new CreateUserActionLogDto();
-            logDto.action = 'Viewed';
-            logDto.userId = userId;
-            logDto.entityType = 'Comment';
-            logDto.entityId = comment.id;
-            logDto.entity = JSON.stringify(comment);
-        
-            await this.loggerService.logActions(logDto);
-        }
-        return comments;
-    }
     async archivePost(userId: number, postId: number) {
         const user = await this.userService.findUserById(userId);
         if (!user) {
             throw new NotFoundException('User not found');
         }
 
-        const post = await this.prisma.post.findUnique({
-            where: { id: postId },
-        });
+        const post = await this.findPostById(postId);
 
         if (!post) {
             throw new NotFoundException('Post not found');
@@ -445,18 +173,9 @@ export class PostsService {
             throw new ForbiddenException('You do not have permission to archive this post');
         }
 
-        const archivedPost = await this.prisma.post.update({
-            where: { id: postId },
-            data: { published: false },
-        });
-        const logDto = new CreateUserActionLogDto();
-        logDto.action = 'Update';
-        logDto.userId = userId;
-        logDto.entityType = 'Post';
-        logDto.entityId = postId;
-        logDto.entity = JSON.stringify(post);
-    
-        await this.loggerService.logActions(logDto);
+        const archivedPost = await this.updateArchivedStatus(postId, false);
+
+        await this.loggerService.logAction('Update', userId, 'Post', postId, post);
         return archivedPost;
     }
 
@@ -466,9 +185,7 @@ export class PostsService {
             throw new NotFoundException('User not found');
         }
 
-        const post = await this.prisma.post.findUnique({
-            where: { id: postId },
-        });
+        const post = await this.findPostById(postId);
 
         if (!post) {
             throw new NotFoundException('Post not found');
@@ -478,18 +195,8 @@ export class PostsService {
             throw new ForbiddenException('You do not have permission to unarchive this post');
         }
 
-        const unarchivedPost = await this.prisma.post.update({
-            where: { id: postId },
-            data: { published: true }, 
-        });
-        const logDto = new CreateUserActionLogDto();
-        logDto.action = 'Update';
-        logDto.userId = userId;
-        logDto.entityType = 'Post';
-        logDto.entityId = postId;
-        logDto.entity = JSON.stringify(post);
-    
-        await this.loggerService.logActions(logDto);
+        const unarchivedPost = await this.updateArchivedStatus(postId, true);
+        await this.loggerService.logAction('Update', userId, 'Post', postId, post);
         return unarchivedPost;
     }
 
@@ -497,41 +204,49 @@ export class PostsService {
         categoryId?: number; 
         searchPhrase?: string;
       }, page: number = 1, limit: number = 10, orderBy: 'asc' | 'desc' = 'desc') {
-        const skip = (page - 1) * limit;
 
-      const filteredPosts = await this.prisma.post.findMany({
-        where: {
-          ...(filters.categoryId && {
-            categories: {
-              some: {
-                categoryId: filters.categoryId,
-              },
-            },
-          }),
-          ...(filters.searchPhrase && {
-            OR: [
-              { title: { contains: filters.searchPhrase, mode: 'insensitive' } },
-              { content: { contains: filters.searchPhrase, mode: 'insensitive' } },
-            ],
-          }),
-        },
-        orderBy: [
-          {updatedAt: orderBy},
-          {createdAt: orderBy},
-        ],
-        skip: skip,
-        take: limit,
-      });
-      for (const filteredPost of filteredPosts) {
-        const logDto = new CreateUserActionLogDto();
-        logDto.action = 'Viewed';
-        logDto.userId = userId;
-        logDto.entityType = 'Post';
-        logDto.entityId = filteredPost.id;
-        logDto.entity = JSON.stringify({ filters, page, limit, orderBy });
-    
-        await this.loggerService.logActions(logDto);
+        const where = {
+            published: true,
+            ...(filters.categoryId && {
+                categories: { some: { categoryId: filters.categoryId } },
+            }),
+            ...(filters.searchPhrase && {
+                OR: [
+                    { title: { contains: filters.searchPhrase, mode: 'insensitive' } },
+                    { content: { contains: filters.searchPhrase, mode: 'insensitive' } },
+                ],
+            }),
+        };
+
+        const filteredPosts = await this.findPostsWithFilters(where, page, limit, orderBy, false);
+      for (const filteredPost of filteredPosts) {  
+        await this.loggerService.logAction('Viewed', userId, 'Post', filteredPost.id, { filters, page, limit, orderBy });
       }
       return filteredPosts;
+    }
+
+    async findPostById(id: number) {
+       return this.prisma.post.findUnique({ where: { id } });
+    }
+
+    async uploadPostImage(postId: number, imageUrl: string, deleteHash: string) {
+        return this.prisma.post.update({
+            where: { id: postId },
+            data: { image: imageUrl, deleteHash: deleteHash },
+          });
+    }
+
+    async deletePostImage(postId: number) {
+       return this.prisma.post.update({
+        where: { id: postId },
+        data: { image: null, deleteHash: null },
+      });
+    }
+
+    async updatePostImage(postId: number, imageUrl: string, deleteHash: string) {
+        return this.prisma.post.update({
+            where: { id: postId },
+            data: { image: imageUrl, deleteHash: deleteHash },
+          });
     }
 }

@@ -3,11 +3,11 @@ import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { JwtAuthGuard } from '../auth/strategies/jwt-auth.guard';
 import { UpdatePostDto } from './dto/update-post.dto';
-import { UserService } from 'src/user/user.service';
+
 
 @Controller('posts')
 export class PostsController {
-   constructor(private postsService: PostsService, private userService: UserService) {}
+   constructor(private postsService: PostsService) {}
 
    @UseGuards(JwtAuthGuard)
    @Post('create-post')
@@ -32,55 +32,27 @@ export class PostsController {
     return this.postsService.updatePost(userId, postIdInt, updatePostDto);
    }
 
+
+
    @UseGuards(JwtAuthGuard)
    @Get()
-   async getAllPosts(@Request() req, @Query('userId') userId: string | undefined, @Query('page') page: string = '1', @Query('limit') limit: string = '10') {
-    const currentUserId = req.user.sub;
-    const pageNumber = parseInt(page, 10);
-    const limitNumber = parseInt(limit, 10);
-
-    const targetUserId = userId ? parseInt(userId, 10) : currentUserId;
-    if (isNaN(targetUserId)) {
-      throw new BadRequestException('Invalid userId');
-    }
-    return this.postsService.getAllPosts(currentUserId, targetUserId, pageNumber, limitNumber);
-   }
-
-   @UseGuards(JwtAuthGuard)
-   @Post(':id/like')
-   async toggleLikePost(@Param('id') postId:string, @Request() req) {
-     const userId = req.user.sub;
-     const postIdInt = parseInt(postId, 10);
-     return this.postsService.toggleLikePost(userId, postIdInt);
-   }
-
-   @UseGuards(JwtAuthGuard)
-   @Post(':id/comment')
-   async commentPost(@Param('id') postId:string, @Request() req, @Body('content') content: string) {
-     const userId = req.user.sub;
-     const postIdInt = parseInt(postId, 10);
-     return this.postsService.commentPost(userId, postIdInt, content);
-   }
-
-   @UseGuards(JwtAuthGuard)
-   @Delete(':postId/comment/:commentId')
-   async deleteComment(@Param('postId') postId:string, @Param('commentId') commentId: string, @Request() req) {
-       const userId = req.user.sub;
-       const postIdInt = parseInt(postId, 10);
-       const commentIdInt = parseInt(commentId, 10);
-       return this.postsService.deleteComment(userId, postIdInt, commentIdInt);
-   }
+   async getAllPosts(
+     @Request() req, 
+     @Query('userId') userId: string | undefined, 
+     @Query('page') page: string = '1', 
+     @Query('limit') limit: string = '10'
+   ) {
+       const currentUserId = req.user.sub;
+       const pageNumber = parseInt(page, 10);
+       const limitNumber = parseInt(limit, 10);
    
-
-   @UseGuards(JwtAuthGuard)
-   @Get(':id/comments')
-   async getAllComments(@Param('id') postId: string, @Request() req, @Query('page') page: string = '1', @Query('limit') limit: string = '10'){
-    const userId = req.user.sub;
-    const postIdInt = parseInt(postId, 10);
-    const pageNumber = parseInt(page, 10);
-    const limitNumber = parseInt(limit, 10);
-    const comments = await this.postsService.getAllComments(userId, postIdInt, pageNumber, limitNumber)
-    return {comments};
+       const targetUserId = userId ? parseInt(userId, 10) : undefined;
+   
+       if (isNaN(targetUserId)) {
+           return this.postsService.getAllPosts(currentUserId, undefined, pageNumber, limitNumber);
+       }
+   
+       return this.postsService.getAllPosts(currentUserId, targetUserId, pageNumber, limitNumber);
    }
 
    @UseGuards(JwtAuthGuard)

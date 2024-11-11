@@ -6,6 +6,7 @@ import { JwtService } from '@nestjs/jwt';
 import * as dotenv from 'dotenv';
 import { UserService } from 'src/user/user.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
+import { PostsService } from 'src/posts/posts.service';
 
 dotenv.config();
 
@@ -14,10 +15,11 @@ export class AdminService {
   constructor(
     private prisma: PrismaService,
     private jwtService: JwtService,
-    private userService: UserService
+    private userService: UserService,
+    private postService: PostsService
   ) {}
   async registerAdmin(registerAdminDto: RegisterAdminDto, userId: number) {
-    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    const user = await this.userService.findUserById(userId);
   
     if (!user || user.roleId !== 2) {
       throw new NotFoundException();
@@ -42,9 +44,7 @@ export class AdminService {
       throw new BadRequestException('Passwords do not match!');
     }
 
-    const existingUser = await this.prisma.user.findUnique({
-        where: { email: userData.email },
-      });
+    const existingUser = await this.userService.findUserByEmail(userData.email);
     
       if (existingUser) {
         throw new BadRequestException('User or Admin with this email already exists');

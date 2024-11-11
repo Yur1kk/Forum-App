@@ -1,10 +1,12 @@
-import { Injectable, BadRequestException } from '@nestjs/common'; 
+import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common'; 
 import { PrismaService } from '../../prisma/prisma.service'; 
 import { sub } from 'date-fns';
+import { PostsService } from 'src/posts/posts.service';
+import { UserService } from 'src/user/user.service';
 
 @Injectable()
 export class StatisticsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private postService: PostsService, private userService: UserService) {}
 
   async getUserActivityStatistics(
     userId: number,
@@ -12,6 +14,10 @@ export class StatisticsService {
     interval: string,
     isAdmin: boolean
   ) {
+    const user = await this.userService.findUserById(userId);
+    if(!user) {
+      throw new NotFoundException('User not found!');
+    }
     const now = new Date();
     const periodStart = this.getPeriodStart(period, now);
 
@@ -32,12 +38,15 @@ export class StatisticsService {
     interval: string,
     isAdmin: boolean
   ) {
+    const post = await this.postService.findPostById(postId);
+    if(!post) {
+      throw new NotFoundException('Post not found!');
+    }
     const now = new Date();
     const periodStart = this.getPeriodStart(period, now);
 
     const types = ['likes', 'comments'];
     const statistics = {};
-
     if (postId === null) {
       return { postId: null, period, interval, statistics: {} };
     }
@@ -136,9 +145,5 @@ export class StatisticsService {
       case 'half-year': return sub(now, { months: 6 });
       default: throw new BadRequestException('Invalid period.');
     }
-  }
-
-  async getPostById(postId: number) {
-    return this.prisma.post.findUnique({ where: { id: postId } });
   }
 }
