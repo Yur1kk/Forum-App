@@ -1,10 +1,11 @@
 import { Controller, Get, Query, UseGuards, Request, BadRequestException } from '@nestjs/common';
 import { JwtAuthGuard } from 'src/auth/strategies/jwt-auth.guard';
 import { StatisticsService } from './statistics.service';
+import { PostsService } from 'src/posts/posts.service';
 
 @Controller('statistics')
 export class StatisticsController {
-  constructor(private statisticsService: StatisticsService) {}
+  constructor(private statisticsService: StatisticsService, private postService: PostsService) {}
 
   @UseGuards(JwtAuthGuard)
   @Get('user-activity')
@@ -55,9 +56,8 @@ export class StatisticsController {
     const isAdmin = roleId === 2;
 
     const parsedPostId = postId ? parseInt(postId, 10) : null;
-
     if (!isAdmin && parsedPostId !== null) {
-      const post = await this.statisticsService.getPostById(parsedPostId);
+      const post = await this.postService.findPostById(parsedPostId);
       if (post.authorId !== requesterId) {
         throw new BadRequestException('You are not the author of this post');
       }

@@ -36,16 +36,23 @@ export class PostsController {
 
    @UseGuards(JwtAuthGuard)
    @Get()
-   async getAllPosts(@Request() req, @Query('userId') userId: string | undefined, @Query('page') page: string = '1', @Query('limit') limit: string = '10') {
-    const currentUserId = req.user.sub;
-    const pageNumber = parseInt(page, 10);
-    const limitNumber = parseInt(limit, 10);
-
-    const targetUserId = userId ? parseInt(userId, 10) : currentUserId;
-    if (isNaN(targetUserId)) {
-      throw new BadRequestException('Invalid userId');
-    }
-    return this.postsService.getAllPosts(currentUserId, targetUserId, pageNumber, limitNumber);
+   async getAllPosts(
+     @Request() req, 
+     @Query('userId') userId: string | undefined, 
+     @Query('page') page: string = '1', 
+     @Query('limit') limit: string = '10'
+   ) {
+       const currentUserId = req.user.sub;
+       const pageNumber = parseInt(page, 10);
+       const limitNumber = parseInt(limit, 10);
+   
+       const targetUserId = userId ? parseInt(userId, 10) : undefined;
+   
+       if (isNaN(targetUserId)) {
+           return this.postsService.getAllPosts(currentUserId, undefined, pageNumber, limitNumber);
+       }
+   
+       return this.postsService.getAllPosts(currentUserId, targetUserId, pageNumber, limitNumber);
    }
 
    @UseGuards(JwtAuthGuard)

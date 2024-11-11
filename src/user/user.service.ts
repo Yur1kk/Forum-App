@@ -54,5 +54,24 @@ export class UserService {
     });
   }
 
-  
+  async uploadUserPhoto(userId: number, imageUrl: string, deleteHash: string) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { profilePhoto: imageUrl, deleteHash: deleteHash },
+    });
+  }
+
+  async deleteUserPhoto(userId: number) {
+   return this.prisma.post.update({
+      where: { id: userId },
+      data: { image: null, deleteHash: null },
+    });
+  }
+
+  async updateUserPhoto(userId: number, imageUrl: string, deleteHash: string) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { profilePhoto: imageUrl, deleteHash: deleteHash },
+    });
+  }
 }

@@ -4,11 +4,11 @@ import * as FormData from 'form-data';
 import { PrismaService } from 'prisma/prisma.service';
 import { UserService } from 'src/user/user.service';
 import { LoggerService } from 'src/logger/logger.service';
-import { CreateUserActionLogDto } from 'src/logger/dto/logger.dto';
+import { PostsService } from 'src/posts/posts.service';
 
 @Injectable()
 export class ImgurService {
-    constructor(private userService: UserService, private prisma: PrismaService, private loggerService: LoggerService) {}
+    constructor(private userService: UserService, private prisma: PrismaService, private loggerService: LoggerService, private postService: PostsService) {}
   async uploadImageToImgur(file: Express.Multer.File): Promise<{ link: string; deletehash: string }> {
     if (!file || !file.buffer) {
       throw new BadRequestException('No file buffer found');
@@ -48,13 +48,7 @@ export class ImgurService {
     const { link: uploadedImageUrl, deletehash } = await this.uploadImageToImgur(file);
   
 
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: {
-        profilePhoto: uploadedImageUrl,
-        deleteHash: deletehash,
-      },
-    });
+    await this.userService.uploadUserPhoto(userId, uploadedImageUrl, deletehash);
   
     return { message: 'Profile photo has been added successfully!' };
   }
@@ -75,10 +69,7 @@ export class ImgurService {
     });
   
 
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { profilePhoto: null, deleteHash: null },
-    });
+   await this.userService.deleteUserPhoto(user.id);
   
     return { message: 'Profile photo has been deleted successfully!' };
   }
@@ -99,11 +90,7 @@ export class ImgurService {
 
     const { link: uploadedImageUrl, deletehash } = await this.uploadImageToImgur(file);
   
-
-    await this.prisma.user.update({
-      where: { id: userId },
-      data: { profilePhoto: uploadedImageUrl, deleteHash: deletehash },
-    });
+    await this.userService.updateUserPhoto(userId, uploadedImageUrl, deletehash);
   
     return { message: 'Profile photo has been updated successfully!' };
   }
@@ -114,7 +101,7 @@ export class ImgurService {
       throw new NotFoundException('User not found');
     }
 
-    const post = await this.prisma.post.findUnique({ where: { id: postId } });
+    const post = await this.postService.findPostById(postId);
     if (!post) {
       throw new NotFoundException('Post not found');
     }
@@ -129,12 +116,9 @@ export class ImgurService {
     }
 
     const { link: imageUrl, deletehash } = await this.uploadImageToImgur(file);
-    await this.prisma.post.update({
-      where: { id: postId },
-      data: { image: imageUrl, deleteHash: deletehash },
-    });
+    await this.postService.uploadPostImage(postId, imageUrl, deletehash);
 
-    await this.logAction('Create', userId, 'Post', post.id, post);
+    await this.loggerService.logAction('Create', userId, 'Post', post.id, post);
 
     return { message: 'Post image has been added successfully!' };
   }
@@ -145,7 +129,7 @@ export class ImgurService {
       throw new NotFoundException('User not found');
     }
 
-    const post = await this.prisma.post.findUnique({ where: { id: postId } });
+    const post = await this.postService.findPostById(postId);
     if (!post) {
       throw new NotFoundException('Post not found');
     }
@@ -160,12 +144,9 @@ export class ImgurService {
     }
 
     const { link: imageUrl, deletehash } = await this.uploadImageToImgur(file);
-    await this.prisma.post.update({
-      where: { id: postId },
-      data: { image: imageUrl, deleteHash: deletehash },
-    });
+    await this.postService.updatePostImage(postId, imageUrl, deletehash);
 
-    await this.logAction('Update', userId, 'Post', post.id, post);
+    await this.loggerService.logAction('Update', userId, 'Post', post.id, post);
 
     return { message: 'Post image has been updated successfully!' };
   }
@@ -176,7 +157,7 @@ export class ImgurService {
       throw new NotFoundException('User not found');
     }
 
-    const post = await this.prisma.post.findUnique({ where: { id: postId } });
+    const post = await this.postService.findPostById(postId);
     if (!post) {
       throw new NotFoundException('Post not found');
     }
@@ -192,12 +173,9 @@ export class ImgurService {
 
     await this.deleteImageFromImgur(post.deleteHash);
 
-    await this.prisma.post.update({
-      where: { id: postId },
-      data: { image: null, deleteHash: null },
-    });
+   await this.postService.deletePostImage(post.id);
 
-    await this.logAction('Delete', userId, 'Post', post.id, post);
+    await this.loggerService.logAction('Delete', userId, 'Post', post.id, post);
 
     return { message: 'Post image has been deleted successfully!' };
   }
@@ -208,14 +186,4 @@ export class ImgurService {
     });
   }
 
-  private async logAction(action: string, userId: number, entityType: string, entityId: number, entity: any) {
-    const logDto = new CreateUserActionLogDto();
-    logDto.action = action;
-    logDto.userId = userId;
-    logDto.entityType = entityType;
-    logDto.entityId = entityId;
-    logDto.entity = JSON.stringify(entity);
-
-    await this.loggerService.logActions(logDto);
-  }
 }
