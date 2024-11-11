@@ -5,6 +5,7 @@ import { UserService } from 'src/user/user.service';
 import { LoggerService } from 'src/logger/logger.service';
 import { ImgurController } from './imgur.controller';
 import { JwtModule } from '@nestjs/jwt';
+import { PostsService } from 'src/posts/posts.service';
 
 @Module({
   imports: [
@@ -13,7 +14,7 @@ import { JwtModule } from '@nestjs/jwt';
       signOptions: { expiresIn: '1h' },
     }),
   ],
-  providers: [ImgurService, PrismaService, UserService, LoggerService],
+  providers: [ImgurService, PrismaService, UserService, LoggerService, PostsService],
   controllers: [ImgurController],
   exports: [ImgurService],
 })

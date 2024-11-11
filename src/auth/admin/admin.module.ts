@@ -5,9 +5,11 @@ import { UserService } from '../../user/user.service';
 import { JwtModule } from '@nestjs/jwt';
 import { JwtAuthGuard } from '../strategies/jwt-auth.guard';
 import { PrismaModule } from 'prisma/prisma.module';
+import { LogerModule } from 'src/logger/logger.module';
+import { PostsModule } from 'src/posts/posts.module';
 
 @Module({
-    imports: [
+    imports: [LogerModule, PostsModule,
         JwtModule.register({
           secret: process.env.JWT_SECRET, 
           signOptions: { expiresIn: '1h' }, 
