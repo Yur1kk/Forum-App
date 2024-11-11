@@ -5,10 +5,11 @@ import { JwtService } from '@nestjs/jwt';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { LoggerService } from 'src/logger/logger.service';
+import { ViewService } from '../post-views/views.service';
 
 @Injectable()
 export class PostsService {
-    constructor(private prisma: PrismaService, private userService: UserService, private jwtService: JwtService, private loggerService: LoggerService) {}
+    constructor(private prisma: PrismaService, private userService: UserService, private viewService: ViewService, private jwtService: JwtService, private loggerService: LoggerService) {}
 
     private async createPostEntry(userId: number, createPostDto: CreatePostDto) {
         return this.prisma.post.create({
@@ -102,37 +103,7 @@ export class PostsService {
     
         if (!post) throw new NotFoundException('Post not found');
     
-        const isAdmin = user.roleId === 2;
-        const isAuthor = post.authorId === userId;
-        const isArchived = !post.published;
-    
-        if (isArchived && !isAuthor && !isAdmin) {
-            throw new ForbiddenException('You do not have permission to view this post');
-        }
-    
-        
-        if ((isAdmin || !isAuthor) && !isArchived) {
-            const existingView = await this.prisma.view.findFirst({
-                where: {
-                    postId,
-                    userId,
-                }
-            });
-    
-           
-            if (!existingView) {
-                await this.prisma.view.create({
-                    data: {
-                        postId,
-                        userId,
-                    }
-                });
-            }
-        }
-    
-        const viewCount = await this.prisma.view.count({
-            where: { postId }
-        });
+        const viewCount = await this.viewService.countView(user, post);
     
         await this.loggerService.logAction('Viewed', userId, 'Post', postId, post);
     
