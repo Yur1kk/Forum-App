@@ -8,9 +8,11 @@ import { AppService } from './app.service';
 import { AppController } from './app.controller';
 import { StatisticsModule } from './statistics/statistics.module';
 import { ImgurModule } from './Imgur/imgur.module';
+import { CommentsModule} from './comments/comments.module';
+import { LikesModule } from './likes/likes.module';
 
 @Module({
-  imports: [AuthModule, UserModule, PostsModule, AdminModule, StatisticsModule, ImgurModule],
+  imports: [AuthModule, UserModule, PostsModule, AdminModule, StatisticsModule, ImgurModule, LikesModule, CommentsModule],
   controllers: [AppController],
   providers: [PrismaService, AppService],
 })
