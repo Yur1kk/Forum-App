@@ -6,13 +6,14 @@ import { LoggerService } from 'src/logger/logger.service';
 import { ImgurController } from './imgur.controller';
 import { JwtModule } from '@nestjs/jwt';
 import { PostsService } from 'src/posts/posts.service';
+import { ViewModule } from 'src/post-views/views.module';
 
 @Module({
   imports: [
     JwtModule.register({
       secret: process.env.JWT_SECRET,
       signOptions: { expiresIn: '1h' },
-    }),
+    }), ViewModule
   ],
   providers: [ImgurService, PrismaService, UserService, LoggerService, PostsService],
   controllers: [ImgurController],
