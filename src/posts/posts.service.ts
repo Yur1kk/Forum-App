@@ -71,24 +71,6 @@ export class PostsService {
         });
     }
 
-    private async updateCommentCount(postId: number, increment: boolean) {
-        await this.prisma.post.update({
-            where: { id: postId },
-            data: {
-                commentsCount: increment ? { increment: 1 } : { decrement: 1 }
-            }
-        });
-    }
-
-    private async updateLikeCount(postId: number, increment: boolean) {
-        await this.prisma.post.update({
-            where: { id: postId },
-            data: {
-                likesCount: increment ? { increment: 1 } : { decrement: 1 }
-            }
-        });
-    }
-
     private async updateArchivedStatus(postId: number, isPublished: boolean) {
         await this.prisma.post.update({
             where: { id: postId },
