@@ -10,9 +10,10 @@ import { StatisticsModule } from './statistics/statistics.module';
 import { ImgurModule } from './Imgur/imgur.module';
 import { CommentsModule} from './comments/comments.module';
 import { LikesModule } from './likes/likes.module';
+import { ViewModule } from './post-views/views.module';
 
 @Module({
-  imports: [AuthModule, UserModule, PostsModule, AdminModule, StatisticsModule, ImgurModule, LikesModule, CommentsModule],
+  imports: [AuthModule, UserModule, PostsModule, AdminModule, StatisticsModule, ImgurModule, LikesModule, CommentsModule, ViewModule],
   controllers: [AppController],
   providers: [PrismaService, AppService],
 })

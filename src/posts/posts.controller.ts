@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Request, Delete, Param, Patch, Get, Query, BadRequestException} from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Request, Delete, Param, Patch, Get, Query, BadRequestException, ParseIntPipe} from '@nestjs/common';
 import { PostsService } from './posts.service';
 import { CreatePostDto } from './dto/create-post.dto';
 import { JwtAuthGuard } from '../auth/strategies/jwt-auth.guard';
@@ -15,6 +15,14 @@ export class PostsController {
        console.log('Creating post with data:', createPostDto);
        const userId = req.user.sub;
        return this.postsService.createPost(userId, createPostDto);
+   }
+
+   @UseGuards(JwtAuthGuard)
+   @Get(':id')
+   async getPost( @Param('id', ParseIntPipe) postId: number,
+   @Request() req){
+    const userId = req.user.sub;
+    return this.postsService.getPost(userId, postId);
    }
    
    @UseGuards(JwtAuthGuard)

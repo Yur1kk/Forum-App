@@ -1,14 +1,15 @@
-import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UserService } from '../user/user.service';
 import { JwtService } from '@nestjs/jwt';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { LoggerService } from 'src/logger/logger.service';
+import { ViewService } from '../post-views/views.service';
 
 @Injectable()
 export class PostsService {
-    constructor(private prisma: PrismaService, private userService: UserService, private jwtService: JwtService, private loggerService: LoggerService) {}
+    constructor(private prisma: PrismaService, private userService: UserService, private viewService: ViewService, private jwtService: JwtService, private loggerService: LoggerService) {}
 
     private async createPostEntry(userId: number, createPostDto: CreatePostDto) {
         return this.prisma.post.create({
@@ -89,6 +90,33 @@ export class PostsService {
     return post;
       }
 
+      async getPost(userId: number, postId: number) {
+        const user = await this.userService.findUserById(userId);
+        if (!user) throw new NotFoundException('User not found');
+    
+        const post = await this.prisma.post.findUnique({
+            where: { id: postId },
+            include: {
+                comments: true,
+            }
+        });
+    
+        if (!post) throw new NotFoundException('Post not found');
+    
+        const viewCount = await this.viewService.countView(user, post);
+    
+        await this.loggerService.logAction('Viewed', userId, 'Post', postId, post);
+    
+        return {
+            ...post,
+            likeCount: post.likesCount,
+            viewCount, 
+            commentCount: post.commentsCount,
+        };
+    }
+    
+    
+    
     async deletePost(userId: number, postId: number) {
         const user = await this.userService.findUserById(userId);
     if (!user) throw new NotFoundException('User not found');

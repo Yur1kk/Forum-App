@@ -5,10 +5,13 @@ import { PrismaModule } from '../../prisma/prisma.module';
 import { JwtModule } from '@nestjs/jwt';
 import { UserService } from '../user/user.service';
 import { LoggerService } from 'src/logger/logger.service';
+import { ViewModule } from 'src/post-views/views.module';
+import { ViewService } from 'src/post-views/views.service';
 
 @Module({
   imports: [
     PrismaModule,
+    ViewModule,
     JwtModule.register({
       secret: process.env.JWT_SECRET,
       signOptions: { expiresIn: '1h' },
