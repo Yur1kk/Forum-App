@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>{{type}} Statistics Report</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 20px; }
+      h1 { color: #333; }
+      .content { margin-top: 20px; }
+      .info { font-weight: bold; }
+      .stats-list { list-style: none; padding: 0; }
+      .stats-list li { margin-bottom: 10px; }
+      .stats-item { background-color: #f9f9f9; padding: 10px; border-radius: 5px; }
+      .label { color: #666; font-weight: bold; }
+    </style>
+  </head>
+  <body>
+    <h1>{{type}} Statistics Report</h1>
+    <div class="info">
+      <p>User ID: {{userId}}</p>
+      <p>Period: {{period}}</p>
+      <p>Interval: {{interval}}</p>
+    </div>
+    <div class="content">
+      <h2>Statistics Data</h2>
+      <ul class="stats-list">
+        <li class="stats-item">
+          <h3>Posts</h3>
+          {{#statisticsData.posts}}
+            <p><span class="label">{{label}}:</span> {{count}}</p>
+          {{/statisticsData.posts}}
+
+          <h3>Likes</h3>
+          {{#statisticsData.likes}}
+            <p><span class="label">{{label}}:</span> {{count}}</p>
+          {{/statisticsData.likes}}
+
+          <h3>Comments</h3>
+          {{#statisticsData.comments}}
+            <p><span class="label">{{label}}:</span> {{count}}</p>
+          {{/statisticsData.comments}}
+        </li>
+      </ul>
+    </div>
+  </body>
+</html>
