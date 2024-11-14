@@ -6,10 +6,10 @@ import { JwtModule } from '@nestjs/jwt';
 import { UserService } from '../user/user.service';
 import { LoggerService } from 'src/logger/logger.service';
 import { ViewModule } from 'src/post-views/views.module';
-import { ViewService } from 'src/post-views/views.service';
+import { PdfModule } from 'src/pdf/pdf.module';
 
 @Module({
-  imports: [
+  imports: [ PdfModule,
     PrismaModule,
     ViewModule,
     JwtModule.register({

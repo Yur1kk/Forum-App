@@ -11,9 +11,10 @@ import { ImgurModule } from './Imgur/imgur.module';
 import { CommentsModule} from './comments/comments.module';
 import { LikesModule } from './likes/likes.module';
 import { ViewModule } from './post-views/views.module';
+import { PdfModule } from './pdf/pdf.module';
 
 @Module({
-  imports: [AuthModule, UserModule, PostsModule, AdminModule, StatisticsModule, ImgurModule, LikesModule, CommentsModule, ViewModule],
+  imports: [AuthModule, UserModule, PostsModule, AdminModule, StatisticsModule, ImgurModule, LikesModule, CommentsModule, ViewModule, PdfModule],
   controllers: [AppController],
   providers: [PrismaService, AppService],
 })
