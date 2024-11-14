@@ -37,6 +37,7 @@ model User {
   comments Comments[]
   actions  UserActionLog[]
   views View[]
+  StatisticsPdfUrls StatisticsPdfUrl[]
 }
 
 model Post {
@@ -117,4 +118,14 @@ model View {
 
   @@unique([postId, userId])
 }
+
+model StatisticsPdfUrl {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  url          String
+  generatedAt  DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id])
+}
+
 
