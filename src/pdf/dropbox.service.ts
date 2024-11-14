@@ -11,26 +11,23 @@ export class DropboxService {
     });
   }
 
- 
   async uploadBuffer(fileBuffer: Buffer, fileName: string): Promise<string> {
     try {
-      const filePath = `/${fileName}`;  
+      const filePath = `/${fileName}`;
 
-      
       const response = await this.dbx.filesUpload({
         path: filePath,
         contents: fileBuffer,
         mode: { '.tag': 'overwrite' }, 
       });
 
-     
+
       const fileLinkResponse = await this.dbx.filesGetTemporaryLink({
         path: response.result.path_display,
       });
 
-      return fileLinkResponse.result.link; 
+      return fileLinkResponse.result.link;
     } catch (error) {
-      console.error('Dropbox upload error:', error);
       throw new Error('Failed to upload file to Dropbox: ' + error.message);
     }
   }
