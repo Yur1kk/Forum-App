@@ -1,74 +1,87 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common'; 
 import { PrismaService } from '../../prisma/prisma.service'; 
-import { sub } from 'date-fns';
-import { PostsService } from 'src/posts/posts.service';
+import { sub } from 'date-fns'; 
+import { PostsService } from 'src/posts/posts.service'; 
 import { UserService } from 'src/user/user.service';
 
-@Injectable()
+interface Statistics {
+  posts: { label: string; count: number }[]; 
+  likes: { label: string; count: number }[]; 
+  comments: { label: string; count: number }[]; 
+}
+
+@Injectable() 
 export class StatisticsService {
-  constructor(private prisma: PrismaService, private postService: PostsService, private userService: UserService) {}
+  constructor(
+    private prisma: PrismaService, 
+    private postService: PostsService, 
+    private userService: UserService
+  ) {}
 
   async getUserActivityStatistics(
     userId: number,
-    period: string,
-    interval: string,
+    startDate: Date,
+    endDate: Date,
+    interval: string,  
     isAdmin: boolean
-  ) {
+  ): Promise<any> {
     const user = await this.userService.findUserById(userId);
-    if(!user) {
+    if (!user) {
       throw new NotFoundException('User not found!');
     }
-    const now = new Date();
-    const periodStart = this.getPeriodStart(period, now);
-
+  
+    const statistics: Statistics = {
+      posts: [],
+      likes: [],
+      comments: [],
+    };
+  
+ 
     const types = ['posts', 'likes', 'comments'];
-    const statistics = {};
-
     for (const statType of types) {
-      const whereCondition = this.createWhereCondition(userId, null, statType, periodStart, now, isAdmin);
+      const whereCondition = this.createWhereCondition(userId, null, statType, startDate, endDate, isAdmin);
       statistics[statType] = await this.fetchStatistics(statType, whereCondition, interval);
     }
-
-    return { userId, period, interval, statistics };
+  
+    return { userId, startDate, endDate, statistics };
   }
 
   async getPostActivityStatistics(
     postId: number | null,
-    period: string,
-    interval: string,
+    startDate: Date,
+    endDate: Date,
+    interval: string,  
     isAdmin: boolean
   ) {
     const post = await this.postService.findPostById(postId);
     if(!post) {
       throw new NotFoundException('Post not found!');
     }
-    const now = new Date();
-    const periodStart = this.getPeriodStart(period, now);
-
-    const types = ['likes', 'comments'];
+  
     const statistics = {};
     if (postId === null) {
-      return { postId: null, period, interval, statistics: {} };
+      return { postId: null, startDate, endDate, statistics: {} };
     }
-
+  
+    const types = ['likes', 'comments'];
     for (const statType of types) {
-      const whereCondition = this.createWhereCondition(null, postId, statType, periodStart, now, isAdmin);
+      const whereCondition = this.createWhereCondition(null, postId, statType, startDate, endDate, isAdmin);
       statistics[statType] = await this.fetchStatistics(statType, whereCondition, interval);
     }
-
-    return { postId, period, interval, statistics };
+  
+    return { postId, startDate, endDate, statistics };
   }
 
   private createWhereCondition(
     userId: number | null,
     postId: number | null,
     type: string,
-    periodStart: Date,
-    periodEnd: Date,
+    startDate: Date,
+    endDate: Date,
     isAdmin: boolean
   ) {
-    const baseCondition = { createdAt: { gte: periodStart, lte: periodEnd } };
-
+    const baseCondition = { createdAt: { gte: startDate, lte: endDate } };
+  
     if (type === 'posts' && userId) {
       return { ...baseCondition, authorId: userId };
     }
@@ -84,7 +97,7 @@ export class StatisticsService {
   private async fetchStatistics(
     type: string,
     whereCondition: any,
-    interval: string,
+    interval: string
   ) {
     let results;
 
@@ -126,24 +139,14 @@ export class StatisticsService {
 
   private formatDateByInterval(date: Date, interval: string): string {
     switch (interval) {
-      case 'hour': return date.toISOString().slice(0, 13);
-      case 'day': return date.toISOString().slice(0, 10);
+      case 'hour': return date.toISOString().slice(0, 13); 
+      case 'day': return date.toISOString().slice(0, 10); 
       case 'week': {
         const startOfWeek = sub(date, { days: date.getDay() });
-        return startOfWeek.toISOString().slice(0, 10);
+        return startOfWeek.toISOString().slice(0, 10); 
       }
       case 'month': return date.toISOString().slice(0, 7);
       default: throw new BadRequestException('Invalid interval.');
-    }
-  }
-
-  private getPeriodStart(period: string, now: Date): Date {
-    switch (period) {
-      case 'day': return sub(now, { days: 1 });
-      case 'week': return sub(now, { weeks: 1 });
-      case 'month': return sub(now, { months: 1 });
-      case 'half-year': return sub(now, { months: 6 });
-      default: throw new BadRequestException('Invalid period.');
     }
   }
 }
