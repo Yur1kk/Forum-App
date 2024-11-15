@@ -2,67 +2,144 @@ import { Controller, Post, Query, Body, Res, HttpStatus, Req, UseGuards, Get } f
 import { Response } from 'express';
 import { PdfService } from './pdf.service';
 import { JwtAuthGuard } from 'src/auth/strategies/jwt-auth.guard';
+import { PostsService } from 'src/posts/posts.service';
 
 @Controller('pdf')
 export class PdfController {
-  constructor(private pdfService: PdfService) {}
+  constructor(
+    private pdfService: PdfService,
+    private postsService: PostsService,
+  ) {}
 
-  @UseGuards(JwtAuthGuard)
-  @Post('generate')
-  async generatePdf(
-    @Req() req,
-    @Body() body: any,
-    @Res() res: Response,
-    @Query('targetUserId') targetUserId?: string, 
-  ) {
-    const userId = req.user.sub;
-    const roleId = req.user.roleId;
-    const isAdmin = roleId === 2;
+@UseGuards(JwtAuthGuard)
+@Post('generate')
+async generatePdf(
+  @Req() req,
+  @Body() body: any,
+  @Res() res: Response,
+  @Query('postId') postId: string | null,
+  @Query('targetUserId') targetUserId: string | null,  
+) {
+  const userId = req.user.sub;
+  const roleId = req.user.roleId;
+  const isAdmin = roleId === 2;  
+  const parsedPostId = parseInt(postId, 10);
+  const parsedTargetUserId = targetUserId ? parseInt(targetUserId, 10) : null;
 
-    const targetUserIdInt = targetUserId ? parseInt(targetUserId, 10) : undefined;
+  if (parsedPostId) {
+    
+    const post = await this.postsService.findPostById(parsedPostId);
+    if (!post) {
+      return res.status(HttpStatus.NOT_FOUND).json({ message: 'Post not found.' });
+    }
 
-    if (!isAdmin && targetUserIdInt && targetUserIdInt !== userId) {
+   
+    if (!isAdmin && post.authorId !== userId) {
       return res.status(HttpStatus.FORBIDDEN).json({ message: 'Access denied.' });
     }
 
-    const id = targetUserIdInt || userId;
-
     try {
       const filePath = await this.pdfService.generatePdfReport(
-        id,
+        null,  
+        parsedPostId,
         body.startDate,
         body.endDate,
         body.interval,
         isAdmin
       );
-
       return res.status(HttpStatus.OK).json({ message: 'PDF generated', filePath });
     } catch (error) {
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Error generating PDF', error: error.message });
     }
+  } else {
+    
+    if (parsedTargetUserId) {
+      if (!isAdmin) {
+        return res.status(HttpStatus.FORBIDDEN).json({ message: 'Access denied. Only admins can generate statistics for other users.' });
+      }
+
+      try {
+        const filePath = await this.pdfService.generatePdfReport(
+          parsedTargetUserId,  
+          null,  
+          body.startDate,
+          body.endDate,
+          body.interval,
+          isAdmin
+        );
+        return res.status(HttpStatus.OK).json({ message: 'PDF generated', filePath });
+      } catch (error) {
+        return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Error generating PDF', error: error.message });
+      }
+    } else {
+      
+      try {
+        const filePath = await this.pdfService.generatePdfReport(
+          userId,  
+          null,
+          body.startDate,
+          body.endDate,
+          body.interval,
+          isAdmin
+        );
+        return res.status(HttpStatus.OK).json({ message: 'PDF generated', filePath });
+      } catch (error) {
+        return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Error generating PDF', error: error.message });
+      }
+    }
   }
+}
 
-  @UseGuards(JwtAuthGuard)
-  @Get('download')
-  async downloadPdf(
-    @Req() req,
-    @Res() res: Response,
-    @Query('targetUserId') targetUserId?: number,
-  ) {
-    const userId = req.user.sub;
-    const roleId = req.user.roleId;
-    const isAdmin = roleId === 2;
 
-    if (!isAdmin && targetUserId && targetUserId !== userId) {
+@UseGuards(JwtAuthGuard)
+@Get('download')
+async downloadPdf(@Req() req, @Res() res: Response, @Query('postId') postId: string | null, @Query('targetUserId') targetUserId: string | null) {
+  const userId = req.user.sub;
+  const roleId = req.user.roleId;
+  const isAdmin = roleId === 2;  
+  const parsedPostId = parseInt(postId, 10);
+  const parsedTargetUserId = targetUserId ? parseInt(targetUserId, 10) : null;
+
+  if (parsedPostId) {
+  
+    const post = await this.postsService.findPostById(parsedPostId);
+    if (!post) {
+      return res.status(HttpStatus.NOT_FOUND).json({ message: 'Post not found.' });
+    }
+
+  
+    if (!isAdmin && post.authorId !== userId) {
       return res.status(HttpStatus.FORBIDDEN).json({ message: 'Access denied.' });
     }
 
-    const id = targetUserId || userId;
     try {
-      const filePath = await this.pdfService.getPdfUrl(id);
-      return res.redirect(filePath);
+      const filePath = await this.pdfService.getPdfUrl(null, parsedPostId);
+      return res.status(HttpStatus.OK).json({ message: 'PDF ready for download', fileUrl: filePath });
     } catch (error) {
       return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Error retrieving PDF URL', error: error.message });
     }
+  } else {
+    
+    if (parsedTargetUserId) {
+      if (!isAdmin) {
+        return res.status(HttpStatus.FORBIDDEN).json({ message: 'Access denied. Only admins can download other users\' statistics.' });
+      }
+
+      try {
+        const filePath = await this.pdfService.getPdfUrl(parsedTargetUserId, null);  
+        return res.status(HttpStatus.OK).json({ message: 'PDF ready for download', fileUrl: filePath });
+      } catch (error) {
+        return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Error retrieving PDF URL', error: error.message });
+      }
+    } else {
+    
+      try {
+        const filePath = await this.pdfService.getPdfUrl(userId, null);  
+        return res.status(HttpStatus.OK).json({ message: 'PDF ready for download', fileUrl: filePath });
+      } catch (error) {
+        return res.status(HttpStatus.INTERNAL_SERVER_ERROR).json({ message: 'Error retrieving PDF URL', error: error.message });
+      }
+    }
   }
+}
 }
