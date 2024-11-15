@@ -8,8 +8,8 @@ import * as fs from 'fs';
 dotenv.config();
 async function bootstrap() {
   const httpsOptions = {
-    key: fs.readFileSync('./secrets/private-key.pem'),
-    cert: fs.readFileSync('./secrets/public-certificate.pem'),
+    key: fs.readFileSync('./secrets/cert.key'),
+    cert: fs.readFileSync('./secrets/cert.crt'),
   };
   const app = await NestFactory.create(AppModule, {
     httpsOptions,
