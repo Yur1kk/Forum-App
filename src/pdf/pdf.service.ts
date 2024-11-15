@@ -63,12 +63,7 @@ export class PdfService {
 
     const dropboxLink = await this.dropboxService.uploadBuffer(buffer, `user_${userId}_statistics.pdf`);
 
-    await this.prisma.statisticsPdfUrl.create({
-      data: {
-        userId: userId,
-        url: dropboxLink,
-      },
-    });
+    await this.savePdfUrlToDatabase(userId, dropboxLink);
 
     return dropboxLink;
   }
@@ -84,4 +79,18 @@ export class PdfService {
     }
     throw new BadRequestException('User ID is required.');
   }
+
+  private async savePdfUrlToDatabase(userId: number, url: string): Promise<void> {
+    try {
+      await this.prisma.statisticsPdfUrl.create({
+        data: {
+          userId: userId,
+          url: url,
+        },
+      });
+    } catch (error) {
+      throw new Error('Failed to save PDF URL to database: ' + error.message);
+    }
+  }
+  
 }
