@@ -55,6 +55,7 @@ model Post {
   views View[]
   likes Likes[]
   comments Comments[]
+  PostStatisticsPdfUrls PostStatisticsPdfUrl[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
@@ -128,4 +129,12 @@ model StatisticsPdfUrl {
   user         User     @relation(fields: [userId], references: [id])
 }
 
+model PostStatisticsPdfUrl {
+  id    Int    @id @default(autoincrement())
+  postId Int?
+  url   String
+  generatedAt  DateTime @default(now())
+
+  post         Post?    @relation(fields: [postId], references: [id])
+}
 
