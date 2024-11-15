@@ -7,6 +7,7 @@ import { UserService } from '../user/user.service';
 import { PostsService } from 'src/posts/posts.service';
 import { LogerModule } from 'src/logger/logger.module';
 import { ViewModule } from 'src/post-views/views.module';
+import { PdfModule } from 'src/pdf/pdf.module';
 
 @Module({
   imports: [LogerModule,
@@ -15,6 +16,7 @@ import { ViewModule } from 'src/post-views/views.module';
       secret: process.env.JWT_SECRET,
       signOptions: { expiresIn: '1h' },
     }),
+    PdfModule
   ],
   controllers: [StatisticsController],
   providers: [StatisticsService, UserService, PostsService],

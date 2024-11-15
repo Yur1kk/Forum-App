@@ -2,27 +2,41 @@ import { Controller, Get, Query, UseGuards, Request, BadRequestException } from 
 import { JwtAuthGuard } from 'src/auth/strategies/jwt-auth.guard';
 import { StatisticsService } from './statistics.service';
 import { PostsService } from 'src/posts/posts.service';
+import { parse } from 'date-fns';
 
 @Controller('statistics')
 export class StatisticsController {
-  constructor(private statisticsService: StatisticsService, private postService: PostsService) {}
+  constructor(
+    private statisticsService: StatisticsService,
+    private postService: PostsService
+  ) {}
 
   @UseGuards(JwtAuthGuard)
   @Get('user-activity')
   async getUserActivityStatistics(
     @Query('userId') userId: string,
-    @Query('period') period: string,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
     @Query('interval') interval: string,
     @Request() req,
   ) {
-    const requesterId = req.user.sub;  
-    const roleId = req.user.roleId;  
+    const requesterId = req.user.sub;
+    const roleId = req.user.roleId;
     const isAdmin = roleId === 2;
+
+
+    const parsedStartDate = parse(startDate, 'yyyy-MM-dd', new Date());
+    const parsedEndDate = parse(endDate, 'yyyy-MM-dd', new Date());
+
+   
+    if (isNaN(parsedStartDate.getTime()) || isNaN(parsedEndDate.getTime())) {
+      throw new BadRequestException('Invalid date format');
+    }
 
     let targetUserId: number;
 
     if (userId) {
-      const parsedUserId = parseInt(userId, 10);  
+      const parsedUserId = parseInt(userId, 10);
       if (isNaN(parsedUserId)) {
         throw new BadRequestException('Invalid userId');
       }
@@ -37,7 +51,8 @@ export class StatisticsController {
 
     return this.statisticsService.getUserActivityStatistics(
       targetUserId,
-      period,
+      parsedStartDate,
+      parsedEndDate,
       interval,
       isAdmin
     );
@@ -47,12 +62,13 @@ export class StatisticsController {
   @Get('post-activity')
   async getPostStatistics(
     @Query('postId') postId: string,
-    @Query('period') period: string,
+    @Query('startDate') startDate: string,
+    @Query('endDate') endDate: string,
     @Query('interval') interval: string,
     @Request() req,
   ) {
-    const requesterId = req.user.sub;  
-    const roleId = req.user.roleId;  
+    const requesterId = req.user.sub;
+    const roleId = req.user.roleId;
     const isAdmin = roleId === 2;
 
     const parsedPostId = postId ? parseInt(postId, 10) : null;
@@ -63,6 +79,21 @@ export class StatisticsController {
       }
     }
 
-    return this.statisticsService.getPostActivityStatistics(parsedPostId, period, interval, isAdmin);
+  
+    const parsedStartDate = parse(startDate, 'yyyy-MM-dd', new Date());
+    const parsedEndDate = parse(endDate, 'yyyy-MM-dd', new Date());
+
+  
+    if (isNaN(parsedStartDate.getTime()) || isNaN(parsedEndDate.getTime())) {
+      throw new BadRequestException('Invalid date format');
+    }
+
+    return this.statisticsService.getPostActivityStatistics(
+      parsedPostId,
+      parsedStartDate,
+      parsedEndDate,
+      interval,
+      isAdmin
+    );
   }
 }
