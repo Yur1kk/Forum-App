@@ -20,19 +20,9 @@ export class UserController {
   ) {
     const currentUserId = req.user.sub;
 
-
-    const user = await this.userService.findUserById(userId);
-    if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
+    const { user, isFollowing, isFollowed } = await this.userService.getUserInfoWithFollowStatus(currentUserId, userId);
 
     const posts = await this.postsService.getAllPosts(currentUserId, userId, 1, 10);
-
-
-    const isFollowing = await this.followersService.isFollowing(currentUserId, userId);
-    const isFollowed = await this.followersService.isFollowing(userId, currentUserId);
-
 
     return {
       user: {
@@ -41,9 +31,9 @@ export class UserController {
         profilePhoto: user.profilePhoto,
         createdAt: user.createdAt,
       },
-      posts,
       isFollowing,
       isFollowed,
+      posts,
     };
   }
 }
