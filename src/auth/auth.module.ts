@@ -9,6 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import { JwtAuthGuard } from './strategies/jwt-auth.guard'; 
 import { MailService } from '../mail/mail.service';
 import * as dotenv from 'dotenv';
+import { FollowersModule } from 'src/followers/followers.module';
 
 
 
@@ -19,7 +20,7 @@ import * as dotenv from 'dotenv';
     JwtModule.register({
       secret: process.env.JWT_SECRET, 
       signOptions: { expiresIn: '1h' }, 
-    }),
+    }), FollowersModule
   ],
   providers: [AuthService, UserService, MailService, JwtAuthGuard],
   controllers: [AuthController],
