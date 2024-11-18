@@ -50,4 +50,18 @@ export class FollowersService {
   async countFollowing(userId: number) {
     return this.prisma.follower.count({ where: { followerId: userId } });
   }
+
+  async isFollowing(followerId: number, followedId: number) {
+    const follow = await this.prisma.follower.findUnique({
+      where: { followerId_followedId: { followerId, followedId } },
+    });
+    return follow ? true : false;
+  }
+
+  async isFollowed(followerId: number, followedId: number) {
+    const follow = await this.prisma.follower.findUnique({
+      where: { followerId_followedId: { followerId: followedId, followedId: followerId } },
+    });
+    return follow ? true : false;
+  }
 }
