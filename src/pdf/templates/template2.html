@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Post Statistics Report</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 20px; }
+      h1 { color: #333; }
+      .content { margin-top: 20px; }
+      .info { font-weight: bold; }
+      .stats-list { list-style: none; padding: 0; }
+      .stats-list li { margin-bottom: 10px; }
+      .stats-item { background-color: #f9f9f9; padding: 10px; border-radius: 5px; }
+      .label { color: #666; font-weight: bold; }
+      canvas { margin-top: 20px; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <h1>Post Statistics Report</h1>
+    <div class="info">
+      <p>Post ID: {{postId}}</p>
+      <p>Period: {{period}}</p>
+      <p>Interval: {{interval}}</p>
+    </div>
+    <div class="content">
+      <h2>Statistics Data</h2>
+      <ul class="stats-list">
+        <li class="stats-item">
+          <h3>Likes</h3>
+          {{#likesData}}
+            <p><span class="label">{{label}}:</span> {{count}}</p>
+          {{/likesData}}
+        </li>
+        <li class="stats-item">
+          <h3>Comments</h3>
+          {{#commentsData}}
+            <p><span class="label">{{label}}:</span> {{count}}</p>
+          {{/commentsData}}
+        </li>
+      </ul>
+      <canvas id="postChart"></canvas>
+    </div>    
+    <script>
+      const likesData = JSON.parse('{{likesJson}}');
+      const commentsData = JSON.parse('{{commentsJson}}');
+        
+      const ctx = document.getElementById('postChart').getContext('2d');
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: likesData.map(like => like.label), 
+          datasets: [
+            {
+              label: 'Likes',
+              data: likesData.map(like => like.count),
+              borderColor: 'rgba(75, 192, 192, 1)',
+              fill: false,
+            },
+            {
+              label: 'Comments',
+              data: commentsData.map(comment => comment.count),
+              borderColor: 'rgba(153, 102, 255, 1)',
+              fill: false,
+            }
+          ]
+        }
+      });
+    </script>
+  </body>
+</html>
