@@ -35,7 +35,12 @@ export class UserController {
 
 
     return {
-      user,
+      user: {
+        id: user.id,
+        name: user.name,
+        profilePhoto: user.profilePhoto,
+        createdAt: user.createdAt,
+      },
       posts,
       isFollowing,
       isFollowed,
