@@ -150,6 +150,6 @@ model Follower {
   follower   User @relation("FollowerRelation", fields: [followerId], references: [id], onDelete: Cascade)
   followed   User @relation("FollowedRelation", fields: [followedId], references: [id], onDelete: Cascade)
 
-  @@unique([followerId, followedId]) // Унікальність, щоб уникнути дублювання
+  @@unique([followerId, followedId])
 }
 
