@@ -9,6 +9,7 @@ import { UserService } from 'src/user/user.service';
 import { ViewService } from 'src/post-views/views.service';
 import { LoggerService } from 'src/logger/logger.service';
 import { DropboxService } from './dropbox.service';
+import { FollowersService } from 'src/followers/followers.service';
 
 @Module({
     imports: [JwtModule.register({
@@ -16,6 +17,6 @@ import { DropboxService } from './dropbox.service';
         signOptions: { expiresIn: '1h' },
       }),],
   controllers: [PdfController],
-  providers: [PdfService, StatisticsService, PrismaService, PostsService, UserService, ViewService, LoggerService, DropboxService],
+  providers: [PdfService, StatisticsService, PrismaService, PostsService, UserService, ViewService, LoggerService, DropboxService, FollowersService],
 })
 export class PdfModule {}

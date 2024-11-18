@@ -8,6 +8,7 @@ import { PostsService } from 'src/posts/posts.service';
 import { LogerModule } from 'src/logger/logger.module';
 import { ViewModule } from 'src/post-views/views.module';
 import { PdfModule } from 'src/pdf/pdf.module';
+import { FollowersService } from 'src/followers/followers.service';
 
 @Module({
   imports: [LogerModule,
@@ -19,6 +20,6 @@ import { PdfModule } from 'src/pdf/pdf.module';
     PdfModule
   ],
   controllers: [StatisticsController],
-  providers: [StatisticsService, UserService, PostsService],
+  providers: [StatisticsService, UserService, PostsService, FollowersService],
 })
 export class StatisticsModule {}

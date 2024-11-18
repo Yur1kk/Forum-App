@@ -38,6 +38,8 @@ model User {
   actions  UserActionLog[]
   views View[]
   StatisticsPdfUrls StatisticsPdfUrl[]
+  Followers          Follower[] @relation("FollowedRelation")
+  Followed           Follower[] @relation("FollowerRelation")
 }
 
 model Post {
@@ -136,5 +138,18 @@ model PostStatisticsPdfUrl {
   generatedAt  DateTime @default(now())
 
   post         Post?    @relation(fields: [postId], references: [id])
+}
+
+
+model Follower {
+  id         Int      @id @default(autoincrement())
+  followerId Int
+  followedId Int
+  createdAt  DateTime @default(now())
+
+  follower   User @relation("FollowerRelation", fields: [followerId], references: [id], onDelete: Cascade)
+  followed   User @relation("FollowedRelation", fields: [followedId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followedId])
 }
 

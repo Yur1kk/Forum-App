@@ -8,6 +8,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { parse } from 'date-fns';
 import { format } from 'date-fns';
+import { FollowersService } from 'src/followers/followers.service';
 
 @Injectable()
 export class PdfService {
@@ -15,6 +16,7 @@ export class PdfService {
     private prisma: PrismaService,
     private statisticsService: StatisticsService,
     private dropboxService: DropboxService,
+    private followersService: FollowersService
   ) {}
 
 
@@ -28,34 +30,43 @@ export class PdfService {
   ): Promise<string> {
     const parsedStartDate = parse(startDate, 'yyyy-MM-dd', new Date());
     const parsedEndDate = parse(endDate, 'yyyy-MM-dd', new Date());
-
+  
     if (isNaN(parsedStartDate.getTime()) || isNaN(parsedEndDate.getTime())) {
       throw new BadRequestException('Invalid date format');
     }
-
+  
     const templatePath = path.join(process.cwd(), 'src', 'pdf', 'templates', 'template.html');
     const template = fs.readFileSync(templatePath, 'utf8');
-
-
+  
     let flattenedStatisticsData;
+  
     if (userId) {
+
       flattenedStatisticsData = await this.statisticsService.getUserActivityStatistics(userId, parsedStartDate, parsedEndDate, interval, isAdmin);
+  
+      const followersCount = await this.followersService.countFollowers(userId);
+      const followingCount = await this.followersService.countFollowing(userId);
+  
+
+      flattenedStatisticsData.followersCount = followersCount;
+      flattenedStatisticsData.followingCount = followingCount;
     } else if (postId) {
       flattenedStatisticsData = await this.statisticsService.getPostActivityStatistics(postId, parsedStartDate, parsedEndDate, interval, isAdmin);
     } else {
       throw new BadRequestException('Either userId or postId must be provided');
     }
-
-
+  
     const html = Mustache.render(template, {
       type: userId ? 'User' : 'Post',
       period: `${startDate} to ${endDate}`,
       interval,
       statisticsData: flattenedStatisticsData.statistics,
+      followersCount: userId ? flattenedStatisticsData.followersCount : undefined,
+      followingCount: userId ? flattenedStatisticsData.followingCount : undefined,
       userId,
       postId,
     });
-
+  
     const browser = await puppeteer.launch({
       headless: true,
       args: ['--no-sandbox', '--disable-setuid-sandbox']
@@ -64,24 +75,24 @@ export class PdfService {
     await page.setContent(html);
     const pdfBuffer = await page.pdf({ format: 'A4' });
     await browser.close();
-
+  
     const buffer = Buffer.from(pdfBuffer);
     const now = new Date();
     const formattedDate = format(now, 'yyyy-MM-dd_HH-mm-ss');
     const filename = userId 
-  ? `user_${userId}_statistics_${formattedDate}.pdf` 
-  : `post_${postId}_statistics_${formattedDate}.pdf`;
+      ? `user_${userId}_statistics_${formattedDate}.pdf` 
+      : `post_${postId}_statistics_${formattedDate}.pdf`;
     const dropboxLink = await this.dropboxService.uploadBuffer(buffer, filename);
-
-
+  
     if (userId) {
       await this.savePdfUrlToDatabase(userId, dropboxLink);
     } else if (postId) {
       await this.savePostPdfUrlToDatabase(postId, dropboxLink);
     }
-
+  
     return dropboxLink;
   }
+  
 
 
   async getPdfUrl(userId?: number, postId?: number): Promise<string> {

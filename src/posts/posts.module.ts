@@ -7,6 +7,7 @@ import { UserService } from '../user/user.service';
 import { LoggerService } from 'src/logger/logger.service';
 import { ViewModule } from 'src/post-views/views.module';
 import { PdfModule } from 'src/pdf/pdf.module';
+import { FollowersModule } from 'src/followers/followers.module';
 
 @Module({
   imports: [ PdfModule,
@@ -15,7 +16,7 @@ import { PdfModule } from 'src/pdf/pdf.module';
     JwtModule.register({
       secret: process.env.JWT_SECRET,
       signOptions: { expiresIn: '1h' },
-    }),
+    }), FollowersModule
   ],
   controllers: [PostsController],
   providers: [PostsService, UserService, LoggerService],

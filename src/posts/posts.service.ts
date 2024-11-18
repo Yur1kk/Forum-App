@@ -1,15 +1,14 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { UserService } from '../user/user.service';
-import { JwtService } from '@nestjs/jwt';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { LoggerService } from 'src/logger/logger.service';
 import { ViewService } from '../post-views/views.service';
+import { UserService } from 'src/user/user.service';
 
 @Injectable()
 export class PostsService {
-    constructor(private prisma: PrismaService, private userService: UserService, private viewService: ViewService, private jwtService: JwtService, private loggerService: LoggerService) {}
+    constructor(private prisma: PrismaService, private viewService: ViewService, private userService: UserService, private loggerService: LoggerService) {}
 
     private async createPostEntry(userId: number, createPostDto: CreatePostDto) {
         return this.prisma.post.create({
@@ -146,21 +145,37 @@ export class PostsService {
         targetUserId: number, 
         page: number = 1, 
         limit: number = 10
-      ) {
-          const filters: any = { published: true };
-      
-          if (targetUserId) {
-              filters.authorId = targetUserId;
-          }
-      
-          const posts = await this.findPostsWithFilters(filters, page, limit, 'desc');
-      
-          for (const post of posts) {
-              await this.loggerService.logAction('Viewed', currentUserId, 'Post', post.id, post);
-          }
-      
-          return posts;
-      }
+    ) {
+        const filters: any = { published: true };
+    
+        if (targetUserId) {
+            filters.authorId = targetUserId;
+        }
+    
+        const posts = await this.findPostsWithFilters(filters, page, limit, 'desc');
+    
+        const result = await Promise.all(posts.map(async (post) => {
+            const likesCount = await this.prisma.likes.count({ where: { postId: post.id } });
+            const commentsCount = await this.prisma.comments.count({ where: { postId: post.id } });
+    
+            await this.loggerService.logAction('Viewed', currentUserId, 'Post', post.id, post);
+    
+            return {
+                id: post.id,
+                title: post.title,
+                content: post.content,
+                image: post.image,
+                published: post.published,
+                likesCount,
+                commentsCount,
+                createdAt: post.createdAt,
+                updatedAt: post.updatedAt,
+            };
+        }));
+    
+        return result;
+    }
+    
       
 
 

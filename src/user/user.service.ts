@@ -1,11 +1,12 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import * as bcrypt from 'bcrypt';
 import { RegisterDto } from '../auth/dto/register.dto'; 
+import { FollowersService } from 'src/followers/followers.service';
 
 @Injectable()
 export class UserService {
-  constructor(private prisma: PrismaService) {}
+  constructor(private prisma: PrismaService, private followersService: FollowersService) {}
 
   async createUser(data: RegisterDto) {
     const { confirmPassword, ...userData } = data;
@@ -73,5 +74,28 @@ export class UserService {
       where: { id: userId },
       data: { profilePhoto: imageUrl, deleteHash: deleteHash },
     });
+  }
+
+  async getUserInfoWithFollowStatus(currentUserId: number, userId: number) {
+
+    const user = await this.findUserById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const isFollowing = await this.followersService.isFollowing(currentUserId, userId);
+
+    const isFollowed = await this.followersService.isFollowing(userId, currentUserId);
+
+    return {
+      user: {
+        id: user.id,
+        name: user.name,
+        profilePhoto: user.profilePhoto,
+        createdAt: user.createdAt,
+      },
+      isFollowing,
+      isFollowed,
+    };
   }
 }
