@@ -146,21 +146,37 @@ export class PostsService {
         targetUserId: number, 
         page: number = 1, 
         limit: number = 10
-      ) {
-          const filters: any = { published: true };
-      
-          if (targetUserId) {
-              filters.authorId = targetUserId;
-          }
-      
-          const posts = await this.findPostsWithFilters(filters, page, limit, 'desc');
-      
-          for (const post of posts) {
-              await this.loggerService.logAction('Viewed', currentUserId, 'Post', post.id, post);
-          }
-      
-          return posts;
-      }
+    ) {
+        const filters: any = { published: true };
+    
+        if (targetUserId) {
+            filters.authorId = targetUserId;
+        }
+    
+        const posts = await this.findPostsWithFilters(filters, page, limit, 'desc');
+    
+        const result = await Promise.all(posts.map(async (post) => {
+            const likesCount = await this.prisma.likes.count({ where: { postId: post.id } });
+            const commentsCount = await this.prisma.comments.count({ where: { postId: post.id } });
+    
+            await this.loggerService.logAction('Viewed', currentUserId, 'Post', post.id, post);
+    
+            return {
+                id: post.id,
+                title: post.title,
+                content: post.content,
+                image: post.image,
+                published: post.published,
+                likesCount,
+                commentsCount,
+                createdAt: post.createdAt,
+                updatedAt: post.updatedAt,
+            };
+        }));
+    
+        return result;
+    }
+    
       
 
 
