@@ -3,6 +3,7 @@ import { PrismaService } from '../../prisma/prisma.service';
 import { sub } from 'date-fns'; 
 import { PostsService } from 'src/posts/posts.service'; 
 import { UserService } from 'src/user/user.service';
+import { FollowersService } from 'src/followers/followers.service';
 
 interface Statistics {
   posts: { label: string; count: number }[]; 
@@ -15,14 +16,15 @@ export class StatisticsService {
   constructor(
     private prisma: PrismaService, 
     private postService: PostsService, 
-    private userService: UserService
+    private userService: UserService,
+    private followersService: FollowersService
   ) {}
 
   async getUserActivityStatistics(
     userId: number,
     startDate: Date,
     endDate: Date,
-    interval: string,  
+    interval: string,
     isAdmin: boolean
   ): Promise<any> {
     const user = await this.userService.findUserById(userId);
@@ -36,15 +38,25 @@ export class StatisticsService {
       comments: [],
     };
   
- 
     const types = ['posts', 'likes', 'comments'];
     for (const statType of types) {
       const whereCondition = this.createWhereCondition(userId, null, statType, startDate, endDate, isAdmin);
       statistics[statType] = await this.fetchStatistics(statType, whereCondition, interval);
     }
   
-    return { userId, startDate, endDate, statistics };
+    const followersCount = await this.followersService.countFollowers(userId);
+    const followingCount = await this.followersService.countFollowing(userId);
+  
+    return { 
+      userId, 
+      startDate, 
+      endDate, 
+      statistics,
+      followersCount,
+      followingCount,
+    };
   }
+  
 
   async getPostActivityStatistics(
     postId: number | null,
