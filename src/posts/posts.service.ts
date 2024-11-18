@@ -1,15 +1,14 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import { UserService } from '../user/user.service';
-import { JwtService } from '@nestjs/jwt';
 import { CreatePostDto } from './dto/create-post.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { LoggerService } from 'src/logger/logger.service';
 import { ViewService } from '../post-views/views.service';
+import { UserService } from 'src/user/user.service';
 
 @Injectable()
 export class PostsService {
-    constructor(private prisma: PrismaService, private userService: UserService, private viewService: ViewService, private jwtService: JwtService, private loggerService: LoggerService) {}
+    constructor(private prisma: PrismaService, private viewService: ViewService, private userService: UserService, private loggerService: LoggerService) {}
 
     private async createPostEntry(userId: number, createPostDto: CreatePostDto) {
         return this.prisma.post.create({
