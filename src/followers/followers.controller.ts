@@ -1,4 +1,4 @@
-import { Controller, Post, Delete, Get, Param, Request, ParseIntPipe, UseGuards } from '@nestjs/common';
+import { Controller, Post, Delete, Get, Param, Request, ParseIntPipe, UseGuards, Head } from '@nestjs/common';
 import { FollowersService } from './followers.service';
 import { JwtAuthGuard } from 'src/auth/strategies/jwt-auth.guard';
 
@@ -33,14 +33,16 @@ export class FollowersController {
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get(':userId/followers/count')
+  @Head(':userId/followers/count')
   async countFollowers(@Param('userId', ParseIntPipe) userId: number) {
-    return this.followersService.countFollowers(userId);
+    const followersCount = await this.followersService.countFollowers(userId);
+    return { 'X-Followers-Count': followersCount }; 
   }
 
   @UseGuards(JwtAuthGuard)
-  @Get(':userId/following/count')
+  @Head(':userId/following/count')
   async countFollowing(@Param('userId', ParseIntPipe) userId: number) {
-    return this.followersService.countFollowing(userId);
+    const followingCount = await this.followersService.countFollowing(userId);
+    return { 'X-Following-Count': followingCount }; 
   }
 }
