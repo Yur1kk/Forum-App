@@ -49,12 +49,10 @@ export class PdfService {
     flattenedStatisticsData.followersCount = followersCount;
     flattenedStatisticsData.followingCount = followingCount;
 
-    return this.generatePdfFromData(
+    return this.generateUserPdfFromData(
       flattenedStatisticsData, 
       userId, 
-      null, 
       templatePath, 
-      'User', 
       startDate, 
       endDate, 
       interval
@@ -72,6 +70,8 @@ export class PdfService {
     const parsedStartDate = parse(startDate, 'yyyy-MM-dd', new Date());
     const parsedEndDate = parse(endDate, 'yyyy-MM-dd', new Date());
 
+    
+
 
     if (isNaN(parsedStartDate.getTime()) || isNaN(parsedEndDate.getTime())) {
       throw new BadRequestException('Invalid date format');
@@ -86,12 +86,12 @@ export class PdfService {
     }
 
     const templatePath = path.join(process.cwd(), 'src', 'pdf', 'templates', 'template2.html');
-    return this.generatePdfFromData(
+
+
+    return this.generatePostPdfFromData(
       flattenedStatisticsData, 
-      null, 
       postId, 
       templatePath, 
-      'Post', 
       startDate, 
       endDate, 
       interval
@@ -99,84 +99,140 @@ export class PdfService {
   }
 
 
-  private async generatePdfFromData(
-    flattenedStatisticsData: any,
-    userId: number | null,
-    postId: number | null,
-    templatePath: string,
-    type: string,
-    startDate: string,
-    endDate: string,
-    interval: string
-  ): Promise<string> {
-
-    if (!fs.existsSync(templatePath)) {
-      throw new NotFoundException('Template file not found.');
-    }
-
-    const sortByDate = (a, b) => {
-      const dateA = a.label ? new Date(a.label) : null;
-      const dateB = b.label ? new Date(b.label) : null;
-    
-      if (!dateA || !dateB || isNaN(dateA.getTime()) || isNaN(dateB.getTime())) {
-        throw new BadRequestException('Invalid or missing date format in statistics data');
-      }
-    
-      return dateA.getTime() - dateB.getTime();
-    };
-
-
-    if (flattenedStatisticsData.statistics.likes) {
-      flattenedStatisticsData.statistics.likes.sort(sortByDate);
-    }
-    if (flattenedStatisticsData.statistics.comments) {
-      flattenedStatisticsData.statistics.comments.sort(sortByDate);
-    }
-    if (flattenedStatisticsData.statistics.posts) {
-      flattenedStatisticsData.statistics.posts.sort(sortByDate);
-    }
-
-
-    const template = fs.readFileSync(templatePath, 'utf8');
-    const html = Mustache.render(template, {
-      type,
-      period: `${startDate} to ${endDate}`,
-      interval,
-      statisticsData: flattenedStatisticsData.statistics,
-      followersCount: userId ? flattenedStatisticsData.followersCount : undefined,
-      followingCount: userId ? flattenedStatisticsData.followingCount : undefined,
-      userId,
-      postId,
-      postsJson: JSON.stringify(flattenedStatisticsData.statistics.posts),
-      likesJson: JSON.stringify(flattenedStatisticsData.statistics.likes),
-      commentsJson: JSON.stringify(flattenedStatisticsData.statistics.comments),
-    });
-
-
-    const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
-    const page = await browser.newPage();
-    await page.setContent(html);
-    const pdfBuffer = await page.pdf({ format: 'A4' });
-    await browser.close();
-
-    const buffer = Buffer.from(pdfBuffer);
-    const now = new Date();
-    const formattedDate = format(now, 'yyyy-MM-dd_HH-mm-ss');
-    const filename = userId 
-      ? `user_${userId}_statistics_${formattedDate}.pdf` 
-      : `post_${postId}_statistics_${formattedDate}.pdf`;
-
-
-    const dropboxLink = await this.dropboxService.uploadBuffer(buffer, filename);
-
-    if (userId) {
-      await this.savePdfUrlToDatabase(userId, dropboxLink);
-    } else if (postId) {
-      await this.savePostPdfUrlToDatabase(postId, dropboxLink);
-    }
-
-    return dropboxLink;
+ 
+private async generateUserPdfFromData(
+  flattenedStatisticsData: any,
+  userId: number,
+  templatePath: string,
+  startDate: string,
+  endDate: string,
+  interval: string
+): Promise<string> {
+  if (!fs.existsSync(templatePath)) {
+    throw new NotFoundException('Template file not found.');
   }
+
+ 
+  const sortByDate = (a, b) => {
+    const dateA = a.label ? new Date(a.label) : null;
+    const dateB = b.label ? new Date(b.label) : null;
+
+    if (!dateA || !dateB || isNaN(dateA.getTime()) || isNaN(dateB.getTime())) {
+      throw new BadRequestException('Invalid or missing date format in statistics data');
+    }
+
+    return dateA.getTime() - dateB.getTime();
+  };
+
+  
+  if (flattenedStatisticsData.statistics.likes) {
+    flattenedStatisticsData.statistics.likes.sort(sortByDate);
+  }
+  if (flattenedStatisticsData.statistics.comments) {
+    flattenedStatisticsData.statistics.comments.sort(sortByDate);
+  }
+  if (flattenedStatisticsData.statistics.posts) {
+    flattenedStatisticsData.statistics.posts.sort(sortByDate);
+  }
+
+  
+  const template = fs.readFileSync(templatePath, 'utf8');
+  const html = Mustache.render(template, {
+    type: 'User',
+    period: `${startDate} to ${endDate}`,
+    interval,
+    statisticsData: flattenedStatisticsData.statistics,
+    followersCount: flattenedStatisticsData.followersCount,
+    followingCount: flattenedStatisticsData.followingCount,
+    userId,
+    postsJson: JSON.stringify(flattenedStatisticsData.statistics.posts),
+    likesJson: JSON.stringify(flattenedStatisticsData.statistics.likes),
+    commentsJson: JSON.stringify(flattenedStatisticsData.statistics.comments),
+  });
+
+  
+  const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+  const page = await browser.newPage();
+  await page.setContent(html);
+  const pdfBuffer = Buffer.from(await page.pdf({ format: 'A4' }));
+  await browser.close();
+
+  
+  const now = new Date();
+  const formattedDate = format(now, 'yyyy-MM-dd_HH-mm-ss');
+  const filename = `user_${userId}_statistics_${formattedDate}.pdf`;
+
+  
+  const dropboxLink = await this.dropboxService.uploadBuffer(pdfBuffer, filename);
+  await this.savePdfUrlToDatabase(userId, dropboxLink);
+
+  return dropboxLink;
+}
+
+
+private async generatePostPdfFromData(
+  flattenedStatisticsData: any,
+  postId: number,
+  templatePath: string,
+  startDate: string,
+  endDate: string,
+  interval: string
+): Promise<string> {
+  if (!fs.existsSync(templatePath)) {
+    throw new NotFoundException('Template file not found.');
+  }
+
+  
+  const sortByDate = (a, b) => {
+    const dateA = a.label ? new Date(a.label) : null;
+    const dateB = b.label ? new Date(b.label) : null;
+
+    if (!dateA || !dateB || isNaN(dateA.getTime()) || isNaN(dateB.getTime())) {
+      throw new BadRequestException('Invalid or missing date format in statistics data');
+    }
+
+    return dateA.getTime() - dateB.getTime();
+  };
+
+  
+  if (flattenedStatisticsData.statistics.likes) {
+    flattenedStatisticsData.statistics.likes.sort(sortByDate);
+  }
+  if (flattenedStatisticsData.statistics.comments) {
+    flattenedStatisticsData.statistics.comments.sort(sortByDate);
+  }
+
+  
+  const template = fs.readFileSync(templatePath, 'utf8');
+  const html = Mustache.render(template, {
+    type: 'Post',
+    period: `${startDate} to ${endDate}`,
+    interval,
+    statisticsData: flattenedStatisticsData.statistics,
+    postId,
+    likesData: JSON.stringify(flattenedStatisticsData.statistics.likes),
+    commentsData: JSON.stringify(flattenedStatisticsData.statistics.comments),
+  });
+
+
+  const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+  const page = await browser.newPage();
+  await page.setContent(html);
+  const pdfBuffer = Buffer.from(await page.pdf({ format: 'A4' }));
+  await browser.close();
+
+
+  const now = new Date();
+  const formattedDate = format(now, 'yyyy-MM-dd_HH-mm-ss');
+  const filename = `post_${postId}_statistics_${formattedDate}.pdf`;
+
+
+  const dropboxLink = await this.dropboxService.uploadBuffer(pdfBuffer, filename);
+  await this.savePostPdfUrlToDatabase(postId, dropboxLink);
+
+  return dropboxLink;
+}
+
 
   private async savePdfUrlToDatabase(userId: number, url: string): Promise<void> {
     try {
