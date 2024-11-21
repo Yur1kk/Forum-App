@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Post Statistics Report</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    h1 { color: #333; }
+    .content { margin-top: 20px; }
+    .info { font-weight: bold; }
+    .stats-list { list-style: none; padding: 0; }
+    .stats-item { background-color: #f9f9f9; padding: 10px; border-radius: 5px; }
+    .label { color: #666; font-weight: bold; }
+    canvas { margin-top: 20px; }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+  <h1>Post Statistics Report</h1>
+  <div class="info">
+    <p>Post ID: {{postId}}</p>
+    <p>Period: {{period}}</p>
+    <p>Interval: {{interval}}</p>
+  </div>
+  <div class="content">
+    <h2>Statistics Data</h2>
+    <canvas id="postChart"></canvas>
+  </div>    
+  <script>
+   const likesData = JSON.parse('{{{likesData}}}');
+const commentsData = JSON.parse('{{{commentsData}}}');
+
+const allDates = [...new Set([...likesData.map(like => like.label), ...commentsData.map(comment => comment.label)])];
+
+const likesCount = allDates.map(date => {
+  const like = likesData.find(like => like.label === date);
+  return like ? like.count : 0;  
+});
+
+const commentsCount = allDates.map(date => {
+  const comment = commentsData.find(comment => comment.label === date);
+  return comment ? comment.count : 0;  
+});
+
+
+const ctx = document.getElementById('postChart').getContext('2d');
+new Chart(ctx, {
+  type: 'line',
+  data: {
+    labels: allDates,  
+    datasets: [
+      {
+        label: 'Likes',
+        data: likesCount,
+        borderColor: 'rgba(153, 102, 255, 1)',
+        fill: false
+      },
+      {
+        label: 'Comments',
+        data: commentsCount,
+        borderColor: 'rgba(255, 159, 64, 1)',
+        fill: false
+      }
+    ]
+  },
+  options: {
+    scales: {
+      y: {
+        beginAtZero: true
+      }
+    }
+  }
+});
+
+setTimeout(() => {
+          window.resolveChart = true;  
+        }, 1000); 
+  </script>
+  
+</body>
+</html>

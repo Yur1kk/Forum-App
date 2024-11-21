@@ -59,22 +59,18 @@ export class StatisticsService {
   
 
   async getPostActivityStatistics(
-    postId: number | null,
+    postId: number,
     startDate: Date,
     endDate: Date,
-    interval: string,  
+    interval: string,
     isAdmin: boolean
   ) {
     const post = await this.postService.findPostById(postId);
-    if(!post) {
+    if (!post) {
       throw new NotFoundException('Post not found!');
     }
   
     const statistics = {};
-    if (postId === null) {
-      return { postId: null, startDate, endDate, statistics: {} };
-    }
-  
     const types = ['likes', 'comments'];
     for (const statType of types) {
       const whereCondition = this.createWhereCondition(null, postId, statType, startDate, endDate, isAdmin);
@@ -83,6 +79,7 @@ export class StatisticsService {
   
     return { postId, startDate, endDate, statistics };
   }
+  
 
   private createWhereCondition(
     userId: number | null,

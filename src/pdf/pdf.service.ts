@@ -19,10 +19,9 @@ export class PdfService {
     private followersService: FollowersService
   ) {}
 
-
-  async generatePdfReport(
-    userId: number | null,
-    postId: number | null,
+ 
+  async generateUserPdfReport(
+    userId: number,
     startDate: string,
     endDate: string,
     interval: string,
@@ -30,77 +29,237 @@ export class PdfService {
   ): Promise<string> {
     const parsedStartDate = parse(startDate, 'yyyy-MM-dd', new Date());
     const parsedEndDate = parse(endDate, 'yyyy-MM-dd', new Date());
-  
+
+
     if (isNaN(parsedStartDate.getTime()) || isNaN(parsedEndDate.getTime())) {
       throw new BadRequestException('Invalid date format');
     }
-  
+
     const templatePath = path.join(process.cwd(), 'src', 'pdf', 'templates', 'template.html');
-    const template = fs.readFileSync(templatePath, 'utf8');
-  
-    let flattenedStatisticsData;
-  
-    if (userId) {
+    let flattenedStatisticsData = await this.statisticsService.getUserActivityStatistics(userId, parsedStartDate, parsedEndDate, interval, isAdmin);
 
-      flattenedStatisticsData = await this.statisticsService.getUserActivityStatistics(userId, parsedStartDate, parsedEndDate, interval, isAdmin);
   
-      const followersCount = await this.followersService.countFollowers(userId);
-      const followingCount = await this.followersService.countFollowing(userId);
-  
+    if (!flattenedStatisticsData || !flattenedStatisticsData.statistics) {
+      throw new NotFoundException('No statistics data found for the user.');
+    }
 
-      flattenedStatisticsData.followersCount = followersCount;
-      flattenedStatisticsData.followingCount = followingCount;
-    } else if (postId) {
-      flattenedStatisticsData = await this.statisticsService.getPostActivityStatistics(postId, parsedStartDate, parsedEndDate, interval, isAdmin);
-    } else {
-      throw new BadRequestException('Either userId or postId must be provided');
-    }
-  
-    const html = Mustache.render(template, {
-      type: userId ? 'User' : 'Post',
-      period: `${startDate} to ${endDate}`,
-      interval,
-      statisticsData: flattenedStatisticsData.statistics,
-      followersCount: userId ? flattenedStatisticsData.followersCount : undefined,
-      followingCount: userId ? flattenedStatisticsData.followingCount : undefined,
-      userId,
-      postId,
-    });
-  
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
-    const page = await browser.newPage();
-    await page.setContent(html);
-    const pdfBuffer = await page.pdf({ format: 'A4' });
-    await browser.close();
-  
-    const buffer = Buffer.from(pdfBuffer);
-    const now = new Date();
-    const formattedDate = format(now, 'yyyy-MM-dd_HH-mm-ss');
-    const filename = userId 
-      ? `user_${userId}_statistics_${formattedDate}.pdf` 
-      : `post_${postId}_statistics_${formattedDate}.pdf`;
-    const dropboxLink = await this.dropboxService.uploadBuffer(buffer, filename);
-  
-    if (userId) {
-      await this.savePdfUrlToDatabase(userId, dropboxLink);
-    } else if (postId) {
-      await this.savePostPdfUrlToDatabase(postId, dropboxLink);
-    }
-  
-    return dropboxLink;
+
+    const followersCount = await this.followersService.countFollowers(userId);
+    const followingCount = await this.followersService.countFollowing(userId);
+    flattenedStatisticsData.followersCount = followersCount;
+    flattenedStatisticsData.followingCount = followingCount;
+
+    return this.generateUserPdfFromData(
+      flattenedStatisticsData, 
+      userId, 
+      templatePath, 
+      startDate, 
+      endDate, 
+      interval
+    );
   }
-  
 
+
+  async generatePostPdfReport(
+    postId: number,
+    startDate: string,
+    endDate: string,
+    interval: string,
+    isAdmin: boolean
+  ): Promise<string> {
+    const parsedStartDate = parse(startDate, 'yyyy-MM-dd', new Date());
+    const parsedEndDate = parse(endDate, 'yyyy-MM-dd', new Date());
+
+    
+
+
+    if (isNaN(parsedStartDate.getTime()) || isNaN(parsedEndDate.getTime())) {
+      throw new BadRequestException('Invalid date format');
+    }
+
+
+    const flattenedStatisticsData = await this.statisticsService.getPostActivityStatistics(postId, parsedStartDate, parsedEndDate, interval, isAdmin);
+
+
+    if (!flattenedStatisticsData || !flattenedStatisticsData.statistics) {
+      throw new NotFoundException('No statistics data found for the post.');
+    }
+
+    const templatePath = path.join(process.cwd(), 'src', 'pdf', 'templates', 'template2.html');
+
+
+    return this.generatePostPdfFromData(
+      flattenedStatisticsData, 
+      postId, 
+      templatePath, 
+      startDate, 
+      endDate, 
+      interval
+    );
+  }
+
+
+ 
+private async generateUserPdfFromData(
+  flattenedStatisticsData: any,
+  userId: number,
+  templatePath: string,
+  startDate: string,
+  endDate: string,
+  interval: string
+): Promise<string> {
+  if (!fs.existsSync(templatePath)) {
+    throw new NotFoundException('Template file not found.');
+  }
+
+ 
+  const sortByDate = (a, b) => {
+    const dateA = a.label ? new Date(a.label) : null;
+    const dateB = b.label ? new Date(b.label) : null;
+
+    if (!dateA || !dateB || isNaN(dateA.getTime()) || isNaN(dateB.getTime())) {
+      throw new BadRequestException('Invalid or missing date format in statistics data');
+    }
+
+    return dateA.getTime() - dateB.getTime();
+  };
+
+  
+  if (flattenedStatisticsData.statistics.likes) {
+    flattenedStatisticsData.statistics.likes.sort(sortByDate);
+  }
+  if (flattenedStatisticsData.statistics.comments) {
+    flattenedStatisticsData.statistics.comments.sort(sortByDate);
+  }
+  if (flattenedStatisticsData.statistics.posts) {
+    flattenedStatisticsData.statistics.posts.sort(sortByDate);
+  }
+
+  
+  const template = fs.readFileSync(templatePath, 'utf8');
+  const html = Mustache.render(template, {
+    type: 'User',
+    period: `${startDate} to ${endDate}`,
+    interval,
+    statisticsData: flattenedStatisticsData.statistics,
+    followersCount: flattenedStatisticsData.followersCount,
+    followingCount: flattenedStatisticsData.followingCount,
+    userId,
+    postsJson: JSON.stringify(flattenedStatisticsData.statistics.posts),
+    likesJson: JSON.stringify(flattenedStatisticsData.statistics.likes),
+    commentsJson: JSON.stringify(flattenedStatisticsData.statistics.comments),
+  });
+
+  
+  const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+  const page = await browser.newPage();
+  await page.setContent(html);
+  const pdfBuffer = Buffer.from(await page.pdf({ format: 'A4' }));
+  await browser.close();
+
+  
+  const now = new Date();
+  const formattedDate = format(now, 'yyyy-MM-dd_HH-mm-ss');
+  const filename = `user_${userId}_statistics_${formattedDate}.pdf`;
+
+  
+  const dropboxLink = await this.dropboxService.uploadBuffer(pdfBuffer, filename);
+  await this.savePdfUrlToDatabase(userId, dropboxLink);
+
+  return dropboxLink;
+}
+
+
+private async generatePostPdfFromData(
+  flattenedStatisticsData: any,
+  postId: number,
+  templatePath: string,
+  startDate: string,
+  endDate: string,
+  interval: string
+): Promise<string> {
+  if (!fs.existsSync(templatePath)) {
+    throw new NotFoundException('Template file not found.');
+  }
+
+  
+  const sortByDate = (a, b) => {
+    const dateA = a.label ? new Date(a.label) : null;
+    const dateB = b.label ? new Date(b.label) : null;
+
+    if (!dateA || !dateB || isNaN(dateA.getTime()) || isNaN(dateB.getTime())) {
+      throw new BadRequestException('Invalid or missing date format in statistics data');
+    }
+
+    return dateA.getTime() - dateB.getTime();
+  };
+
+  
+  if (flattenedStatisticsData.statistics.likes) {
+    flattenedStatisticsData.statistics.likes.sort(sortByDate);
+  }
+  if (flattenedStatisticsData.statistics.comments) {
+    flattenedStatisticsData.statistics.comments.sort(sortByDate);
+  }
+
+  
+  const template = fs.readFileSync(templatePath, 'utf8');
+  const html = Mustache.render(template, {
+    type: 'Post',
+    period: `${startDate} to ${endDate}`,
+    interval,
+    statisticsData: flattenedStatisticsData.statistics,
+    postId,
+    likesData: JSON.stringify(flattenedStatisticsData.statistics.likes),
+    commentsData: JSON.stringify(flattenedStatisticsData.statistics.comments),
+  });
+
+
+  const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+  const page = await browser.newPage();
+  await page.setContent(html);
+  const pdfBuffer = Buffer.from(await page.pdf({ format: 'A4' }));
+  await browser.close();
+
+
+  const now = new Date();
+  const formattedDate = format(now, 'yyyy-MM-dd_HH-mm-ss');
+  const filename = `post_${postId}_statistics_${formattedDate}.pdf`;
+
+
+  const dropboxLink = await this.dropboxService.uploadBuffer(pdfBuffer, filename);
+  await this.savePostPdfUrlToDatabase(postId, dropboxLink);
+
+  return dropboxLink;
+}
+
+
+  private async savePdfUrlToDatabase(userId: number, url: string): Promise<void> {
+    try {
+      await this.prisma.statisticsPdfUrl.create({
+        data: { userId, url },
+      });
+    } catch (error) {
+      throw new Error('Failed to save PDF URL to database: ' + error.message);
+    }
+  }
+
+  private async savePostPdfUrlToDatabase(postId: number, url: string): Promise<void> {
+    try {
+      await this.prisma.postStatisticsPdfUrl.create({
+        data: { postId, url },
+      });
+    } catch (error) {
+      throw new Error('Failed to save Post PDF URL to database: ' + error.message);
+    }
+  }
 
   async getPdfUrl(userId?: number, postId?: number): Promise<string> {
     if (userId) {
       const pdfRecord = await this.prisma.statisticsPdfUrl.findFirst({
         where: { userId: userId },
         orderBy: {
-          generatedAt: 'desc',  
+          generatedAt: 'desc',
         },
         select: { url: true },
       });
@@ -112,7 +271,7 @@ export class PdfService {
       const pdfRecord = await this.prisma.postStatisticsPdfUrl.findFirst({
         where: { postId: postId },
         orderBy: {
-          generatedAt: 'desc',  
+          generatedAt: 'desc',
         },
         select: { url: true },
       });
@@ -123,33 +282,5 @@ export class PdfService {
     }
     throw new BadRequestException('User ID or Post ID is required.');
   }
-  
 
-
-  private async savePdfUrlToDatabase(userId: number, url: string): Promise<void> {
-    try {
-      await this.prisma.statisticsPdfUrl.create({
-        data: {
-          userId: userId,
-          url: url,
-        },
-      });
-    } catch (error) {
-      throw new Error('Failed to save PDF URL to database: ' + error.message);
-    }
-  }
-  
-
-  private async savePostPdfUrlToDatabase(postId: number, url: string): Promise<void> {
-    try {
-      await this.prisma.postStatisticsPdfUrl.create({
-        data: {
-          postId: postId,
-          url: url,
-        },
-      });
-    } catch (error) {
-      throw new Error('Failed to save Post PDF URL to database: ' + error.message);
-    }
-  }
 }
