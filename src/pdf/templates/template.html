@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>{{type}} Statistics Report</title>
+    <style>
+      body { font-family: Arial, sans-serif; margin: 20px; }
+      h1 { color: #333; }
+      .content { margin-top: 20px; }
+      .info { font-weight: bold; }
+      .stats-list { list-style: none; padding: 0; }
+      .stats-list li { margin-bottom: 10px; }
+      .stats-item { background-color: #f9f9f9; padding: 10px; border-radius: 5px; }
+      .label { color: #666; font-weight: bold; }
+      canvas { margin-top: 20px; }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <h1>{{type}} Statistics Report</h1>
+    <div class="info">
+      <p>User ID: {{userId}}</p>
+      <p>Period: {{period}}</p>
+      <p>Interval: {{interval}}</p>
+      <p>Followers: {{followersCount}}</p>
+      <p>Following: {{followingCount}}</p>
+    </div>
+    <div class="content">
+      <h2>Statistics Data</h2>
+      <ul class="stats-list">
+        <li class="stats-item">
+          <h3>Posts</h3>
+          {{#statisticsData.posts}}
+            <p><span class="label">{{label}}:</span> {{count}}</p>
+          {{/statisticsData.posts}}
+
+          <h3>Likes</h3>
+          {{#statisticsData.likes}}
+            <p><span class="label">{{label}}:</span> {{count}}</p>
+          {{/statisticsData.likes}}
+
+          <h3>Comments</h3>
+          {{#statisticsData.comments}}
+            <p><span class="label">{{label}}:</span> {{count}}</p>
+          {{/statisticsData.comments}}
+        </li>
+      </ul>
+
+
+      <canvas id="statisticsChart"></canvas>
+
+      <script>
+        const ctx = document.getElementById('statisticsChart').getContext('2d');
+        
+       
+        const posts = JSON.parse('{{{postsJson}}}');
+        const likes = JSON.parse('{{{likesJson}}}');
+        const comments = JSON.parse('{{{commentsJson}}}');
+        
+        new Chart(ctx, {
+          type: 'line', 
+          data: {
+            labels: posts.map(post => post.label), 
+            datasets: [
+              {
+                label: 'Posts',
+                data: posts.map(post => post.count),
+                borderColor: 'rgba(75, 192, 192, 1)',
+                fill: false
+              },
+              {
+                label: 'Likes',
+                data: likes.map(like => like.count),
+                borderColor: 'rgba(153, 102, 255, 1)',
+                fill: false
+              },
+              {
+                label: 'Comments',
+                data: comments.map(comment => comment.count),
+                borderColor: 'rgba(255, 159, 64, 1)',
+                fill: false
+              }
+            ]
+          },
+          options: {
+            scales: {
+              y: {
+                beginAtZero: true
+              }
+            }
+          }
+        });
+
+
+        setTimeout(() => {
+          window.resolveChart = true;  
+        }, 1000); 
+      </script>      
+    </div>
+  </body>
+</html>

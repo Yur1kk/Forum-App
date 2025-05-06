@@ -6,6 +6,7 @@
 
 generator client {
   provider = "prisma-client-js"
+  binaryTargets = ["native", "debian-openssl-1.1.x"]
 }
 
 datasource db {
@@ -26,12 +27,19 @@ model User {
   role    User_Role @relation(fields: [roleId], references: [id])
   name    String?  @db.VarChar(255)
   profilePhoto String? @db.VarChar(255)
+  deleteHash String?
   email   String   @unique @db.VarChar(255)
+  resetToken    String?
   password String  @db.VarChar(255)
   createdAt DateTime @default(now())
   posts Post[]
   likes Likes[]
   comments Comments[]
+  actions  UserActionLog[]
+  views View[]
+  StatisticsPdfUrls StatisticsPdfUrl[]
+  Followers          Follower[] @relation("FollowedRelation")
+  Followed           Follower[] @relation("FollowerRelation")
 }
 
 model Post {
@@ -39,14 +47,19 @@ model Post {
   title   String
   content String?
   image    String?   @db.VarChar(255)
+  deleteHash String?
   published Boolean @default(false)
   likesCount Int @default(0)
   commentsCount Int @default(0)
   categories PostCategories[]
   author   User @relation(fields: [authorId], references: [id])
   authorId Int
+  views View[]
   likes Likes[]
   comments Comments[]
+  PostStatisticsPdfUrls PostStatisticsPdfUrl[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model Category {
@@ -56,9 +69,9 @@ model Category {
 }
 
 model PostCategories {
-  post Post @relation(fields: [postId], references: [id])
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
   postId Int
-  category Category @relation(fields: [categoryId], references: [id])
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
   categoryId Int
   createdAt DateTime @default(now())
   assignedBy String
@@ -67,22 +80,76 @@ model PostCategories {
 }
 
 model Likes {
-  post Post @relation(fields: [postId], references: [id])
+  post Post @relation(fields: [postId], references: [id], onDelete: Cascade)
   postId Int
   user User @relation(fields: [userId], references: [id])
   userId Int
-  likedAt DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@id([postId, userId])
 }
 
 model Comments {
-  post Post @relation(fields: [postId], references: [id])
-  postId Int
-  user User @relation(fields: [userId], references: [id])
-  userId Int
-  content String?
-  commentedAt DateTime @default(now())
-
-  @@id([postId, userId])
+    id            Int      @id @default(autoincrement())
+    post          Post     @relation(fields: [postId], references: [id], onDelete: Cascade) 
+    postId        Int
+    user          User     @relation(fields: [userId], references: [id])
+    userId        Int
+    content       String?
+    createdAt   DateTime @default(now())
 }
+
+model UserActionLog {
+  id            Int      @id @default(autoincrement())
+  action        String
+  userId        Int
+  user          User     @relation(fields: [userId], references: [id])
+  entityType    String
+  entityId      Int
+  entity        Json
+  operationTime DateTime @default(now())
+}
+
+model View {
+  id Int      @id @default(autoincrement())
+  postId    Int
+  userId    Int
+  viewedAt  DateTime @default(now())
+
+  post      Post     @relation(fields: [postId], references: [id])
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([postId, userId])
+}
+
+model StatisticsPdfUrl {
+  id           Int      @id @default(autoincrement())
+  userId       Int
+  url          String
+  generatedAt  DateTime @default(now())
+
+  user         User     @relation(fields: [userId], references: [id])
+}
+
+model PostStatisticsPdfUrl {
+  id    Int    @id @default(autoincrement())
+  postId Int?
+  url   String
+  generatedAt  DateTime @default(now())
+
+  post         Post?    @relation(fields: [postId], references: [id])
+}
+
+
+model Follower {
+  id         Int      @id @default(autoincrement())
+  followerId Int
+  followedId Int
+  createdAt  DateTime @default(now())
+
+  follower   User @relation("FollowerRelation", fields: [followerId], references: [id], onDelete: Cascade)
+  followed   User @relation("FollowedRelation", fields: [followedId], references: [id], onDelete: Cascade)
+
+  @@unique([followerId, followedId])
+}
+
